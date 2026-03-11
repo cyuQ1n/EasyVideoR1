@@ -25,7 +25,7 @@ conda activate easyvideorl
 
 cd "$REPO_ROOT" || exit 1
 
-DATASETS="lvbench holmes mmvu videommmu videomme videomathqa longvideobench mlvu mvbench tempcompass motionbench"
+DATASETS="lvbench holmes mmvu videommmu videomme videomathqa longvideobench mlvu mvbench tempcompass motionbench ovobench odvbench livesports3k_qa"
 
 # 模型和输出配置
 MODEL_PATH="${MODEL_PATH:-YourLocalPath/models/Qwen3-VL}"

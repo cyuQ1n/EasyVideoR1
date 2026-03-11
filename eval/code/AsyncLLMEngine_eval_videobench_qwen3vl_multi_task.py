@@ -76,10 +76,32 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected (true/false, yes/no, 1/0)')
 
 
-# ============== Prompt 模板 ==============
-QUESTION_TEMPLATE_qwen25 = (
-    "{Question}\n"
-    "Please think about this question as if you were a human pondering deeply. "
+_REC_TASK_DESC = (
+    "You're watching a video in which people may perform a certain type of action repetively. "
+    "The person performing this kind of action are referred to as 'they' in the following statement.\n"
+    "You're task is to count how many times have different people in the video perform this kind of action in total.\n"
+    "One complete motion counts as one.\n"
+    "Now, answer the following question: {}"
+)
+
+_SSR_TASK_DESC = (
+    "You're watching a tutorial video which contain a sequential of steps.\n"
+    "The following is one step from the whole procedures:\n"
+    "{}\n"
+    "Your task is to determine if the man or woman in the video is currently performing this step."
+)
+
+_CRR_TASK_DESC = (
+    "You're responsible of answering questions based on the video content.\n"
+    "The following question are relevant to the latest frames, i.e. the end of the video.\n"
+    "{}\n"
+    "Decide whether existing visual content, especially latest frames, i.e. frames that near the end of the video, "
+    "provide enough information for answering the question."
+)
+
+
+_QWEN25_THINK_INSTRUCTION = (
+    "\nPlease think about this question as if you were a human pondering deeply. "
     "Engage in an internal dialogue using expressions such as 'let me think', 'wait', 'Hmm', "
     "'oh, I see', 'let's break it down', etc, or other natural language thought expressions "
     "It's encouraged to include self-reflection or verification in the reasoning process. "
@@ -87,52 +109,84 @@ QUESTION_TEMPLATE_qwen25 = (
     "final answer between the <answer> and </answer> tags."
 )
 
-TYPE_TEMPLATE_qwen25 = {
-    "multiple choice": " Please provide only the single option letter (e.g., A, B, C, D, etc.) within the <answer> </answer> tags.",
-    "numerical": " Please provide the numerical value (e.g., 42 or 3.14) within the <answer> </answer> tags.",
-    "OCR": " Please transcribe text from the image/video clearly and provide your text answer within the <answer> </answer> tags.",
-    "free-form": " Please provide your text answer within the <answer> </answer> tags.",
-    "open-ended": " Please provide your text answer within the <answer> </answer> tags.",
-    "regression": " Please provide the numerical value (e.g., 42 or 3.14) within the <answer> </answer> tags.",
-    "temporal grounding": (
-        " Please provide the time span in seconds as JSON within the <answer>...</answer> tags. "
-        "Example: <answer>{\"time\": [12.3, 25.7]}</answer>"
-    ),
-    "spatial-temporal grounding": (
-        " Please provide the time span in seconds and bounding boxes as JSON within the <answer>...</answer> tags. "
-        "Example: <answer>{\"time\": [8.125, 13.483], \"boxes\": {\"9\": [317, 422, 582, 997]}}</answer>"
-    ),
+_QWEN3_THINK_INSTRUCTION = (
+    "\nBegin by explaining your reasoning process briefly, describing what you observe in the video."
+)
+
+_DIRECT_NUMBER_FMT = (
+    "\nProvide your answer as a single number (e.g., 0, 1, 2, 3…) indicating the total count.\n"
+    "Do not include any additional text or explanation in your response."
+)
+_DIRECT_YESNO_FMT = (
+    '\nAnswer only with "Yes" or "No".\n'
+    "Do not include any additional text or explanation in your response."
+)
+_THINK_NUMBER_FMT = (
+    '\nConclude by stating the final answer using the following format: '
+    '"Therefore, the final answer is: $NUMBER" (without quotes), '
+    "where $NUMBER is the total count as a single number (e.g., 0, 1, 2, 3…)."
+)
+_THINK_YESNO_FMT = (
+    '\nConclude by stating the final answer using the following format: '
+    '"Therefore, the final answer is: $ANSWER" (without quotes), '
+    'where $ANSWER is either "Yes" or "No".'
+)
+_QWEN25_NUMBER_FMT = " Please provide a single number (e.g., 0, 1, 2, 3…) indicating the total count within the <answer> </answer> tags."
+_QWEN25_YESNO_FMT = ' Please answer only "Yes" or "No" within the <answer> </answer> tags.'
+
+
+# =========================== 1. qwen2.5 模板 ===========================
+QUESTION_TEMPLATE_qwen25 = "{Question}" + _QWEN25_THINK_INSTRUCTION
+
+TYPE_SUFFIX_qwen25 = {
+    "multiple choice":           " Please provide only the single option letter (e.g., A, B, C, D, etc.) within the <answer> </answer> tags.",
+    "numerical":                 " Please provide the numerical value (e.g., 42 or 3.14) within the <answer> </answer> tags.",
+    "OCR":                       " Please transcribe text from the image/video clearly and provide your text answer within the <answer> </answer> tags.",
+    "free-form":                 " Please provide your text answer within the <answer> </answer> tags.",
+    "open-ended":                " Please provide your text answer within the <answer> </answer> tags.",
+    "regression":                " Please provide the numerical value (e.g., 42 or 3.14) within the <answer> </answer> tags.",
+    "temporal grounding":        " Please provide the time span in seconds as JSON within the <answer>...</answer> tags. Example: <answer>{\"time\": [12.3, 25.7]}</answer>",
+    "spatial-temporal grounding": " Please provide the time span in seconds and bounding boxes as JSON within the <answer>...</answer> tags. Example: <answer>{\"time\": [8.125, 13.483], \"boxes\": {\"9\": [317, 422, 582, 997]}}</answer>",
 }
 
-QUESTION_TEMPLATE_qwen3 = """ Select the best answer to the following multiple-choice question based on the video.
-Respond with only the letter (A, B, C, or D) of the correct option.
-Question: {Question}
-""".strip()
+# =========================== 2. qwen3 模板 ==============================
 
-QUESTION_TEMPLATE_qwen3_thinking = """ You should watch and learn the video content. Then apply what you learned to select the best answer to the following multiple-choice question based on the video.
-Begin by explaining your reasoning process briefly.
-Conclude by stating the final answer using the following format: "Therefore, the final answer is: $LETTER" (without quotes), where $LETTER must be one of the options.
-Question: {Question}
-""".strip()
+# --- qwen3 问题模板 ---
+QUESTION_TEMPLATE_qwen3_mc = (
+    "Select the best answer to the following multiple-choice question based on the video.\n"
+    "Respond with only the letter (A, B, C, or D) of the correct option.\n"
+    "Question: {Question}"
+)
 
-QUESTION_TEMPLATE_qwen3_open = """ Answer the following question based on the video.
-Question: {Question}
-""".strip()
+QUESTION_TEMPLATE_qwen3_mc_thinking = (
+    "You should watch and learn the video content. Then apply what you learned to select the best answer "
+    "to the following multiple-choice question based on the video.\n"
+    "Begin by explaining your reasoning process briefly.\n"
+    'Conclude by stating the final answer using the following format: '
+    '"Therefore, the final answer is: $LETTER" (without quotes), where $LETTER must be one of the options.\n'
+    "Question: {Question}"
+)
 
-# 通用 thinking 模式问题模板 (适用于所有非 MC 任务类型，来自 VideoEval-JD)
-QUESTION_TEMPLATE_qwen3_thinking_generic = """ You should watch and learn the video content. Then apply what you learned to answer the following question based on the video.
-Begin by explaining your reasoning process briefly.
-Question: {Question}
-""".strip()
+QUESTION_TEMPLATE_qwen3_open = (
+    "Answer the following question based on the video.\n"
+    "Question: {Question}"
+)
 
-TYPE_TEMPLATE_qwen3 = {
-    "multiple choice": "\nThe best answer is: ",
-    "numerical": "\nThe best answer is: ",
-    "OCR": "\nThe best answer is: ",
-    "free-form": "\nThe best answer is: ",
-    "open-ended": "\nThe best answer is: ",
-    "regression": "\nThe best answer is: ",
-    "thinking_multiple_choice": "Please reason step-by-step, identify relevant visual content, analyze key timestamps and clues, and then provide the final answer.",
+QUESTION_TEMPLATE_qwen3_open_thinking = (
+    "You should watch and learn the video content. Then apply what you learned to answer the "
+    "following question based on the video.\n"
+    "Begin by explaining your reasoning process briefly.\n"
+    "Question: {Question}"
+)
+
+# --- qwen3 non-thinking 后缀 ---
+TYPE_SUFFIX_qwen3_nothink = {
+    "multiple choice":           "\nThe best answer is: ",
+    "numerical":                 "\nThe best answer is: ",
+    "OCR":                       "\nThe best answer is: ",
+    "free-form":                 "\nThe best answer is: ",
+    "open-ended":                "\nThe best answer is: ",
+    "regression":                "\nThe best answer is: ",
     "temporal grounding": (
         "\nPlease provide the time span in seconds as JSON within the <answer>...</answer> tags.\n"
         "Example:\n<answer>{\"time\": [12.3, 25.7]}</answer>\n"
@@ -147,36 +201,14 @@ TYPE_TEMPLATE_qwen3 = {
     ),
 }
 
-# nothink 模式: 所有任务类型使用简短的后缀 (来自 VideoEval-JD)
-TYPE_TEMPLATE_qwen3_nothink = {
-    "multiple choice": "\nThe best answer is: ",
-    "numerical": "\nThe best answer is: ",
-    "OCR": "\nThe best answer is: ",
-    "free-form": "\nThe best answer is: ",
-    "open-ended": "\nThe best answer is: ",
-    "regression": "\nThe best answer is: ",
-    "temporal grounding": (
-        "\nPlease provide the time span in seconds as JSON within the <answer>...</answer> tags.\n"
-        "Example:\n<answer>{\"time\": [12.3, 25.7]}</answer>\n"
-    ),
-    "spatial-temporal grounding": (
-        "\nPlease provide the time span in seconds and bounding boxes as JSON within the <answer>...</answer> tags.\n"
-        "You MUST output one bounding box for every integer second within the given time span (inclusive).\n"
-        "Example:\n"
-        "<answer>{\"time\": [8.125, 13.483], \"boxes\": {\"9\": [317, 422, 582, 997], "
-        "\"10\": [332, 175, 442, 369], \"11\": [340, 180, 450, 370]}}</answer>\n"
-        "Note: Each key in 'boxes' must be an integer second within the span, and its value must be a 4-number bounding box [x1, y1, x2, y2]."
-    ),
-}
-
-# thinking 模式: 每种任务类型使用针对性的结论格式 (来自 VideoEval-JD)
-TYPE_TEMPLATE_qwen3_thinking = {
-    "multiple choice": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $LETTER" (without quotes), where $LETTER must be one of the options.''',
-    "numerical": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $NUMBER" (without quotes), where $NUMBER is your numerical answer.''',
-    "OCR": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $TEXT" (without quotes), where $TEXT is the recognized text.''',
-    "free-form": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $ANSWER" (without quotes).''',
-    "open-ended": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $ANSWER" (without quotes).''',
-    "regression": '''\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $NUMBER" (without quotes), where $NUMBER is your numerical answer.''',
+# --- qwen3 thinking 后缀 ---
+TYPE_SUFFIX_qwen3_thinking = {
+    "multiple choice": '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $LETTER" (without quotes), where $LETTER must be one of the options.',
+    "numerical":       '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $NUMBER" (without quotes), where $NUMBER is your numerical answer.',
+    "OCR":             '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $TEXT" (without quotes), where $TEXT is the recognized text.',
+    "free-form":       '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $ANSWER" (without quotes).',
+    "open-ended":      '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $ANSWER" (without quotes).',
+    "regression":      '\nConclude by stating the final answer using the following format: "Therefore, the final answer is: $NUMBER" (without quotes), where $NUMBER is your numerical answer.',
     "temporal grounding": (
         "\nConclude by providing the time span in seconds as JSON within the <answer>...</answer> tags.\n"
         "Example:\n<answer>{\"time\": [12.3, 25.7]}</answer>\n"
@@ -190,6 +222,24 @@ TYPE_TEMPLATE_qwen3_thinking = {
         "Note: Each key in 'boxes' must be an integer second within the span, and its value must be a 4-number bounding box [x1, y1, x2, y2]."
     ),
 }
+
+
+# fmt: off
+PROMPT_OVO = {
+    # ---- qwen2.5: 统一 <think> + <answer> 格式 ----
+    ("REC", "qwen25"): _REC_TASK_DESC + _QWEN25_THINK_INSTRUCTION + _QWEN25_NUMBER_FMT,
+    ("SSR", "qwen25"): _SSR_TASK_DESC + _QWEN25_THINK_INSTRUCTION + _QWEN25_YESNO_FMT,
+    ("CRR", "qwen25"): _CRR_TASK_DESC + _QWEN25_THINK_INSTRUCTION + _QWEN25_YESNO_FMT,
+    # ---- qwen3 non-thinking: 直接输出 ----
+    ("REC", "qwen3", False): _REC_TASK_DESC + _DIRECT_NUMBER_FMT,
+    ("SSR", "qwen3", False): _SSR_TASK_DESC + _DIRECT_YESNO_FMT,
+    ("CRR", "qwen3", False): _CRR_TASK_DESC + _DIRECT_YESNO_FMT,
+    # ---- qwen3 thinking: 先推理再结论 ----
+    ("REC", "qwen3", True):  _REC_TASK_DESC + _QWEN3_THINK_INSTRUCTION + _THINK_NUMBER_FMT,
+    ("SSR", "qwen3", True):  _SSR_TASK_DESC + _QWEN3_THINK_INSTRUCTION + _THINK_YESNO_FMT,
+    ("CRR", "qwen3", True):  _CRR_TASK_DESC + _QWEN3_THINK_INSTRUCTION + _THINK_YESNO_FMT,
+}
+# fmt: on
 
 
 def _resolve_qwen25_vision_process_path(utils_root: str) -> str:
@@ -298,30 +348,28 @@ def build_prompt_text(
     thinking_mode: bool,
     image_hint: str = "",
 ) -> str:
+    if problem_type in ("REC", "SSR", "CRR"):
+        if model_family == "qwen25":
+            tpl = PROMPT_OVO[(problem_type, "qwen25")]
+        else:
+            tpl = PROMPT_OVO[(problem_type, "qwen3", thinking_mode)]
+        return image_hint + tpl.format(question)
+
     if model_family == "qwen25":
-        suffix = TYPE_TEMPLATE_qwen25.get(problem_type, TYPE_TEMPLATE_qwen25["free-form"])
+        suffix = TYPE_SUFFIX_qwen25.get(problem_type, TYPE_SUFFIX_qwen25["free-form"])
         return image_hint + QUESTION_TEMPLATE_qwen25.format(Question=question) + suffix
 
-    # qwen3 家族: 根据 thinking_mode 和 problem_type 选择对应的模板
     if thinking_mode:
-        # Thinking 模式: 所有任务类型都使用 thinking 专用模板
         if problem_type == "multiple choice":
-            # MC thinking: 使用 MC 专用的 thinking 问题模板 (已包含结论格式)
-            return image_hint + QUESTION_TEMPLATE_qwen3_thinking.format(Question=question)
-        else:
-            # 非 MC thinking: 使用通用 thinking 问题模板 + 任务特定的 thinking 后缀
-            suffix = TYPE_TEMPLATE_qwen3_thinking.get(
-                problem_type, TYPE_TEMPLATE_qwen3_thinking.get("free-form", "")
-            )
-            return image_hint + QUESTION_TEMPLATE_qwen3_thinking_generic.format(Question=question) + suffix
+            return image_hint + QUESTION_TEMPLATE_qwen3_mc_thinking.format(Question=question)
+        suffix = TYPE_SUFFIX_qwen3_thinking.get(
+            problem_type, TYPE_SUFFIX_qwen3_thinking.get("free-form", "")
+        )
+        return image_hint + QUESTION_TEMPLATE_qwen3_open_thinking.format(Question=question) + suffix
     else:
-        # Non-thinking 模式
-        if problem_type == "multiple choice":
-            template = QUESTION_TEMPLATE_qwen3
-        else:
-            template = QUESTION_TEMPLATE_qwen3_open
-        suffix = TYPE_TEMPLATE_qwen3_nothink.get(
-            problem_type, TYPE_TEMPLATE_qwen3_nothink.get("free-form", "")
+        template = QUESTION_TEMPLATE_qwen3_mc if problem_type == "multiple choice" else QUESTION_TEMPLATE_qwen3_open
+        suffix = TYPE_SUFFIX_qwen3_nothink.get(
+            problem_type, TYPE_SUFFIX_qwen3_nothink.get("free-form", "")
         )
         return image_hint + template.format(Question=question) + suffix
 
@@ -576,6 +624,33 @@ def reward_fn(sample: dict, model_output: str, question_type: str) -> float:
             if gt_number is None or out_number is None:
                 return 0.0
             return mean_relative_accuracy(out_number, gt_number)
+        elif question_type == "REC":
+            response_digits = "".join(re.findall(r'\d+', output_ans))
+            gt_digits = "".join(re.findall(r'\d+', gt_ans))
+            if response_digits == gt_digits and gt_digits != "":
+                return 1.0
+            return 0.0
+        elif question_type in ["SSR", "CRR"]:
+            if not output_ans:
+                return 0.0
+            ans_upper = output_ans.strip().upper()
+            # 确定 Ground Truth
+            if "ovo_type" in sample:
+                gt_str = "YES" if sample["ovo_type"] == 1 else "NO"
+            else:
+                gt_upper = gt_ans.strip().upper()
+                if gt_upper in ["YES", "Y", "1"]:
+                    gt_str = "YES"
+                elif gt_upper in ["NO", "N", "0"]:
+                    gt_str = "NO"
+                else:
+                    gt_str = gt_upper
+            # 匹配逻辑，参考 OVOBenchScore
+            if (ans_upper == "N" and gt_str == "NO") or (ans_upper == "Y" and gt_str == "YES"):
+                return 1.0
+            if gt_str in ans_upper:
+                return 1.0
+            return 0.0
         elif question_type == "temporal grounding":
             try:
                 pred = json.loads(output_ans)
@@ -708,7 +783,7 @@ def save_video_cache(cache_path: str, video_inputs: List, video_kwargs: dict) ->
             return False
         all_metadata = {
             "video_kwargs": _serialize_video_kwargs(video_kwargs),
-            "video_meta": video_meta,
+            "video_meta": _serialize_video_kwargs(video_meta),
         }
         if cache_path.endswith(".safetensors") and HAS_SAFETENSORS:
             tensors = {"frames": video_tensor.half().contiguous()}
@@ -762,6 +837,8 @@ def _serialize_video_kwargs(video_kwargs: dict) -> dict:
     for k, v in video_kwargs.items():
         if isinstance(v, torch.Tensor):
             result[k] = v.tolist()
+        elif isinstance(v, dict):
+            result[k] = _serialize_video_kwargs(v)
         elif isinstance(v, list):
             result[k] = [item.tolist() if isinstance(item, torch.Tensor) else item for item in v]
         else:
@@ -1590,7 +1667,7 @@ def main():
                         help="Maximum number of samples to evaluate per dataset (for quick validation). None means all samples.")
 
     # 数据集配置
-    parser.add_argument("--data_dir_path", type=str, default="/mnt/public/users/siqingyi/video_reasoning/data/test")
+    parser.add_argument("--data_dir_path", type=str, default="./EasyVideoR1/eval/data")
     parser.add_argument("--datasets", type=str, nargs="+", default=None)
     parser.add_argument("--dataset_config", type=str, default="")
 
@@ -1642,12 +1719,15 @@ def main():
         "videomathqa":   {"json": f"{ROOT}/valid_data/videomathqa.jsonl",    "video": f"{ROOT}/VideoMathQA"},
         "vcrbench":      {"json": f"{ROOT}/valid_data/vcrbench.json",        "video": f"{ROOT}/VCR-Bench/v1/videos"},
         "videoreasonbench": {"json": f"{ROOT}/valid_data/videoreasonbench.json", "video": f"{ROOT}/VideoReasonBench/videos"},
-        "longvideoreason": {"json": f"{ROOT}/valid_data/longvideoreason.json", "video": f"/mnt/public/users/siqingyi/video_rl_data/OneThinker-train-data/QA/longvila_videos"},
+        "longvideoreason": {"json": f"{ROOT}/valid_data/longvideoreason.json", "video": f"{ROOT}/longvila_videos"},
         "minerva":       {"json": f"{ROOT}/valid_data/minerva.json",         "video": f"{ROOT}/Minderva"},
         "stvg":          {"json": f"{ROOT}/valid_data/stvg.json",            "video": f"{ROOT}/ST-Align-Benchmark"},
         "charades_sta":  {"json": f"{ROOT}/valid_data/charades_sta.json",    "video": f"{ROOT}/Charades_sta/Charades_v1_480"},
         "motionbench":   {"json": f"{ROOT}/valid_data/motionbench.json",     "video": f"{ROOT}/MotionBench-official/MotionBench"},
         "video_count_eval": {"json": f"{ROOT}/valid_data/video_count_eval.json", "video": f"{ROOT}/Molmo2-VideoCountEval/Molmo2-VideoCountEval"},
+        "ovobench":      {"json": f"{ROOT}/valid_data/ovobench.json", "video": f"{ROOT}/OVO-Bench/chunked_videos"},
+        "odvbench":      {"json": f"{ROOT}/valid_data/odvbench.json", "video": f"{ROOT}/ODV-Bench/clips"},
+        "livesports3k_qa": {"json": f"{ROOT}/valid_data/livesports3k_qa.json", "video": f"{ROOT}/LiveSports-3K-QA/clips"},
     }
 
     for k in list(default_mapping.keys()):
@@ -1683,7 +1763,6 @@ def main():
             tensor_parallel_size=num_gpus,
             max_model_len=args.max_model_len,
             gpu_memory_utilization=args.gpu_mem_util,
-            disable_mm_preprocessor_cache=True,
             limit_mm_per_prompt={"image": 1, "video": 1},
             enforce_eager=args.enforce_eager,
             enable_chunked_prefill=args.enable_chunked_prefill,
@@ -1947,6 +2026,77 @@ def main():
             avg_output_tokens = total_output_tokens / len(final_output) if final_output else 0
             print(f"Total output tokens: {total_output_tokens}, Average: {avg_output_tokens:.2f}")
 
+            # ODV-Bench 分任务/子任务统计
+            if name == "odvbench":
+                task_groups: Dict[str, List[float]] = {}
+                subtask_groups: Dict[str, List[float]] = {}
+                for sample in final_output:
+                    task_groups.setdefault(sample.get("odv_task", "unknown"), []).append(sample.get("reward", 0.0))
+                    subtask_groups.setdefault(sample.get("odv_subtask", "unknown"), []).append(sample.get("reward", 0.0))
+                print("\n--- ODV-Bench Task Breakdown ---")
+                odv_task_scores: Dict[str, float] = {}
+                for task, rewards in sorted(task_groups.items()):
+                    acc = sum(rewards) / len(rewards)
+                    odv_task_scores[task] = acc
+                    print(f"  [Task] {task}: {100*acc:.2f}% ({int(sum(rewards))}/{len(rewards)})")
+                print("--- ODV-Bench Subtask Breakdown ---")
+                odv_subtask_scores: Dict[str, float] = {}
+                for subtask, rewards in sorted(subtask_groups.items()):
+                    acc = sum(rewards) / len(rewards)
+                    odv_subtask_scores[subtask] = acc
+                    print(f"  [Subtask] {subtask}: {100*acc:.2f}% ({int(sum(rewards))}/{len(rewards)})")
+                final_acc["odv_task_scores"]    = {k: round(v, 6) for k, v in odv_task_scores.items()}
+                final_acc["odv_subtask_scores"] = {k: round(v, 6) for k, v in odv_subtask_scores.items()}
+
+            # LiveSports-3K QA 分类统计
+            if name == "livesports3k_qa":
+                qtype_groups: Dict[str, List[float]] = {}
+                ocr_groups: Dict[str, List[float]] = {}
+                for sample in final_output:
+                    qt = sample.get("q_type_livesports", "unknown")
+                    qtype_groups.setdefault(qt, []).append(sample.get("reward", 0.0))
+                    ocr_label = "OCR" if sample.get("ocr_livesports", 0) else "non-OCR"
+                    ocr_groups.setdefault(ocr_label, []).append(sample.get("reward", 0.0))
+                print("\n--- LiveSports-3K QA Question Type Breakdown ---")
+                ls_qtype_scores: Dict[str, float] = {}
+                for qt, rewards in sorted(qtype_groups.items()):
+                    acc = sum(rewards) / len(rewards)
+                    ls_qtype_scores[qt] = acc
+                    print(f"  [Q-Type] {qt}: {100*acc:.2f}% ({int(sum(rewards))}/{len(rewards)})")
+                print("--- LiveSports-3K QA OCR Breakdown ---")
+                ls_ocr_scores: Dict[str, float] = {}
+                for label, rewards in sorted(ocr_groups.items()):
+                    acc = sum(rewards) / len(rewards)
+                    ls_ocr_scores[label] = acc
+                    print(f"  [OCR] {label}: {100*acc:.2f}% ({int(sum(rewards))}/{len(rewards)})")
+                final_acc["ls_qtype_scores"] = {k: round(v, 6) for k, v in ls_qtype_scores.items()}
+                final_acc["ls_ocr_scores"] = {k: round(v, 6) for k, v in ls_ocr_scores.items()}
+
+            # OVO-Bench 官方分数计算：macro avg over tasks, then macro avg over categories
+            if name == "ovobench":
+                ovo_groups: Dict[str, Dict[str, List[float]]] = {}
+                for sample in final_output:
+                    cat = sample.get("ovo_category", "unknown")
+                    task = sample.get("ovo_task", "unknown")
+                    ovo_groups.setdefault(cat, {}).setdefault(task, []).append(
+                        sample.get("reward", 0.0)
+                    )
+                ovo_category_scores: Dict[str, float] = {}
+                for cat, tasks in sorted(ovo_groups.items()):
+                    task_accs = []
+                    for task, rewards in sorted(tasks.items()):
+                        task_acc = sum(rewards) / len(rewards)
+                        task_accs.append(task_acc)
+                        print(f"  [{cat}] Task: {task}, Acc: {100 * task_acc:.2f}% ({sum(rewards):.0f}/{len(rewards)})")
+                    cat_score = sum(task_accs) / len(task_accs)
+                    ovo_category_scores[cat] = cat_score
+                    print(f"  [{cat}] Category Avg: {100 * cat_score:.2f}%\n")
+                if ovo_category_scores:
+                    ovo_total = sum(ovo_category_scores.values()) / len(ovo_category_scores)
+                    print(f"OVO-Bench Total Avg (macro): {100 * ovo_total:.2f}%")
+                    final_acc["ovo_total"] = ovo_total
+                    final_acc["ovo_category_scores"] = {k: round(v, 6) for k, v in ovo_category_scores.items()}
+
             # 保存详细结果
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump({
@@ -1978,6 +2128,15 @@ def main():
                 "total_output_tokens": total_output_tokens,
                 "avg_output_tokens": round(avg_output_tokens, 2),
             }
+            if name == "ovobench" and "ovo_total" in final_acc:
+                all_results[name]["ovo_total"] = final_acc["ovo_total"]
+                all_results[name]["ovo_category_scores"] = final_acc["ovo_category_scores"]
+            if name == "odvbench" and "odv_task_scores" in final_acc:
+                all_results[name]["odv_task_scores"]    = final_acc["odv_task_scores"]
+                all_results[name]["odv_subtask_scores"] = final_acc["odv_subtask_scores"]
+            if name == "livesports3k_qa" and "ls_qtype_scores" in final_acc:
+                all_results[name]["ls_qtype_scores"] = final_acc["ls_qtype_scores"]
+                all_results[name]["ls_ocr_scores"]   = final_acc["ls_ocr_scores"]
 
             with open(result_file, "w", encoding="utf-8") as f:
                 json.dump(all_results, f, indent=2, ensure_ascii=False)

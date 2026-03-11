@@ -7,7 +7,7 @@ LLM-as-a-Judge 后处理脚本
 用法:
     python llm_judge.py \
         --input_json /path/to/output.json \
-        --model_path /mnt/public/users/zhuyongfu/model/Qwen3/Qwen3-32B \
+        --model_path /path/to/judge/model \
         --output_json /path/to/output_judged.json \
         --result_file /path/to/result-async/ModelName.json \
         --dataset_name mmvu-all \
@@ -177,7 +177,7 @@ def main():
     parser.add_argument("--input_json", type=str, required=True,
                         help="Path to the *_output.json from the main evaluation pipeline")
     parser.add_argument("--model_path", type=str,
-                        default="/mnt/public/users/zhuyongfu/model/Qwen3/Qwen3-32B",
+                        default="Qwen/Qwen3-32B",
                         help="Path to the judge model (default: Qwen3-32B)")
     parser.add_argument("--output_json", type=str, default=None,
                         help="Output path (default: <input>_judged.json)")

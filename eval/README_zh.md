@@ -8,6 +8,7 @@
 - `code/llm_judge.py`：开放题后处理脚本
 - `data/valid_data/`：内置的评测标注文件
 - `bashes/`：批量运行示例脚本
+- `preprocess/`：视频预处理工具（片段裁剪等）
 
 ## 特性
 
@@ -78,7 +79,7 @@ YOUR_EVAL_DATA_ROOT/
 如果你直接使用本仓库内置标注，推荐显式指定：
 
 ```bash
---data_dir_path /mnt/public/users/siqingyi/EasyVideoR1/EasyVideoR1/eval/data
+--data_dir_path /path/to/EasyVideoR1/eval/data
 ```
 
 然后将对应数据集视频目录按脚本约定放到该目录下，或使用 `--dataset_config` 覆盖路径。
@@ -92,7 +93,7 @@ python eval/code/AsyncLLMEngine_eval_videobench_qwen3vl_multi_task.py \
   --mode auto \
   --model_path /path/to/your/model \
   --model_family qwen3 \
-  --data_dir_path /mnt/public/users/siqingyi/EasyVideoR1/EasyVideoR1/eval/data \
+  --data_dir_path /path/to/EasyVideoR1/eval/data \
   --datasets lvbench \
   --cache_dir ./eval/video_cache \
   --output_dir ./eval/output-async \
@@ -114,7 +115,7 @@ python eval/code/AsyncLLMEngine_eval_videobench_qwen3vl_multi_task.py \
 python eval/code/AsyncLLMEngine_eval_videobench_qwen3vl_multi_task.py \
   --mode preprocess \
   --model_path /path/to/your/model \
-  --data_dir_path /mnt/public/users/siqingyi/EasyVideoR1/EasyVideoR1/eval/data \
+  --data_dir_path /path/to/EasyVideoR1/eval/data \
   --datasets lvbench videomme \
   --cache_dir ./eval/video_cache
 ```
@@ -125,7 +126,7 @@ python eval/code/AsyncLLMEngine_eval_videobench_qwen3vl_multi_task.py \
 python eval/code/AsyncLLMEngine_eval_videobench_qwen3vl_multi_task.py \
   --mode eval \
   --model_path /path/to/your/model \
-  --data_dir_path /mnt/public/users/siqingyi/EasyVideoR1/EasyVideoR1/eval/data \
+  --data_dir_path /path/to/EasyVideoR1/eval/data \
   --datasets lvbench videomme \
   --cache_dir ./eval/video_cache \
   --output_dir ./eval/output-async \
@@ -203,10 +204,39 @@ python eval/code/llm_judge.py \
 | `stvg` | 时空定位 | ST-Align-Benchmark |
 | `charades_sta` | 时间定位 | Charades-STA |
 | `motionbench` | 多选题 | MotionBench |
+| `ovobench` | 多选题、计数、判断 | OVO-Bench |
+| `odvbench` | 多选题 | ODV-Bench |
+| `livesports3k_qa` | 多选题 | LiveSports-3K QA |
 
 额外说明：
 
 - `eval/data/valid_data/` 中还包含 `mmvu-mc.json`、`videommlu.json` 等文件；如果需要，可通过 `--dataset_config` 自定义接入
+- `odvbench` 和 `livesports3k_qa` 的原始视频为长视频，需要先用 `preprocess/` 中的裁剪工具按时间戳切出片段后才能评测（详见下文"视频预处理"章节）
+
+## 视频预处理
+
+ODV-Bench 和 LiveSports-3K 的标注对应长视频片段，评测前需先裁剪。
+
+```bash
+cd EasyVideoR1/eval/preprocess
+
+# ODV-Bench
+python cilp.py \
+    --input_json ../data/valid_data/odvbench.json \
+    --video_root /path/to/ODV-Bench \
+    --output_dir ../data/ODV-Bench/clips \
+    --format odvbench
+
+# LiveSports-3K
+python cilp.py \
+    --input_json ../data/valid_data/livesports3k_qa.json \
+    --video_root /path/to/LiveSports-3K/videos \
+    --output_dir ../data/LiveSports-3K-QA/clips \
+    --format livesports
+```
+
+
+数据来源：[ODV-Bench](https://huggingface.co/datasets/MCG-NJU/ODV-Bench)、[LiveSports-3K](https://huggingface.co/datasets/stdKonjac/LiveSports-3K)
 
 ## 自定义数据集
 
@@ -278,7 +308,7 @@ lvbench_f256_fps2.0_mp256k_tp32768k
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--data_dir_path` | 数据根目录 | `/mnt/public/users/siqingyi/video_reasoning/data/test` |
+| `--data_dir_path` | 数据根目录 | `./eval/data` |
 | `--datasets` | 需要评测的数据集列表 | 全部内置数据集 |
 | `--dataset_config` | 自定义数据集映射 | 空 |
 | `--cache_dir` | 视频缓存根目录 | `./video_cache` |
