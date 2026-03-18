@@ -407,7 +407,7 @@ class RayPPOTrainer:
             test_batch = DataProto.from_single_dict(batch_dict)
             test_gen_batch = test_batch.pop(
                 batch_keys=["input_ids", "attention_mask", "position_ids"],
-                non_tensor_batch_keys=["raw_prompt_ids", "multi_modal_data"],
+                non_tensor_batch_keys=["raw_prompt_ids", "raw_prompt", "multi_modal_data"],
             )
             repeat_times = self.config.worker.rollout.val_override_config.get("n", 1)
             test_gen_batch.meta_info = self.config.worker.rollout.val_override_config
@@ -597,6 +597,7 @@ class RayPPOTrainer:
                 batch_keys=["input_ids", "attention_mask", "position_ids"],
                 non_tensor_batch_keys=[
                     "raw_prompt_ids",
+                    "raw_prompt",
                     "multi_modal_data",
                     "has_offline_trajectory",  # Mix-policy: 是否有预采集轨迹
                     "offline_output",          # Mix-policy: 预采集的输出文本

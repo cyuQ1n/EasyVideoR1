@@ -190,3 +190,9 @@ train_data/
 val_data/
 examples/
 preprocessed_videos/
+
+# Keep source code under version control while still ignoring top-level data/model folders.
+!verl/models/
+!verl/models/**
+!examples/
+!examples/**

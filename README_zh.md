@@ -12,10 +12,9 @@
 - **图像-视频混合训练**，优化梯度流
 - 图像和视频分辨率独立控制
 - 视频元数据支持，精确帧处理
-- 完整的视频理解任务奖励函数
-  - 多选题、数值计算、OCR、开放式问答
-  - 时间定位、空间定位、时空定位
-  - 目标追踪、图像/视频分割
+- 默认示例 prompt/reward 栈面向视频理解任务
+  - 默认 reward 已完整实现：多选题、数值计算、时间定位、时空定位、开放式问答
+  - 额外还提供了空间定位、目标追踪、OCR、布尔问答、数学、代码生成等 prompt 模板分支，但默认 reward 脚本尚未完整实现这些任务
 
 ## 安装
 
@@ -44,24 +43,28 @@ pip install flash-attn==2.8.3 --no-build-isolation
 
 ### 1. 准备数据集
 
-数据集应为 JSON 格式，结构如下：
+数据集可以是 JSON 或 JSONL，字段结构如下：
 
 ```json
-[
-  {
-    "problem": "你的问题",
-    "answer": "标准答案",
-    "videos": ["path/to/video.mp4"],
-    "data_type": "video",
-    "problem_type": "multiple_choice"
-  }
-]
+{
+  "problem": "你的问题",
+  "answer": "标准答案",
+  "videos": ["path/to/video.mp4"],
+  "data_type": "video",
+  "problem_type": "multiple choice"
+}
 ```
 
-支持的 `problem_type` 值：
-- `multiple_choice`（多选题）、`numerical`（数值计算）、`regression`（回归）、`ocr`、`open_ended`（开放式问答）、`math`（数学）
-- `temporal_grounding`（时间定位）、`spatial_grounding`（空间定位）、`spatial_temporal_grounding`（时空定位）
-- `tracking`（目标追踪）、`image_segmentation`（图像分割）、`video_segmentation`（视频分割）
+如果使用默认示例链路
+(`examples/videorl/format_prompt/unified.jinja` + `examples/videorl/reward_function/video_reward.py`)，
+请严格使用以下 `problem_type` 字符串：
+- `multiple choice`
+- `numerical`
+- `temporal grounding`
+- `spatial-temporal grounding`
+- `open-ended`
+
+其中，prompt 模板还包含 `regression`、`spatial grounding`、`tracking`、`ocr`、`boolean`、`math`、`code`、`svg-code`、`html-code`、`llava` 等分支，但默认 reward 脚本暂未完整支持这些任务类型。
 
 ### 2. 配置训练
 

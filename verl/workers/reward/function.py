@@ -47,6 +47,23 @@ SequentialRewardFunction = Callable[[RewardInput], RewardScore]
 BatchRewardFunction = Callable[[list[RewardInput]], list[RewardScore]]
 
 
+def _build_reward_input(data: DataProto, response_str: str, response_length: int, index: int) -> RewardInput:
+    non_tensor = data.non_tensor_batch
+    data_type = non_tensor["data_type"][index] if "data_type" in non_tensor else None
+    problem_type = non_tensor["problem_type"][index] if "problem_type" in non_tensor else None
+    problem = non_tensor["problem_reserved_text"][index] if "problem_reserved_text" in non_tensor else None
+    problem_id = non_tensor["problem_id"][index] if "problem_id" in non_tensor else None
+    return {
+        "response": response_str,
+        "response_length": response_length,
+        "ground_truth": non_tensor["ground_truth"][index],
+        "data_type": data_type,
+        "problem_type": problem_type,
+        "problem": problem,
+        "problem_id": problem_id,
+    }
+
+
 class SequentialFunctionRewardManagerMixin:
     reward_fn: SequentialRewardFunction
 
@@ -61,13 +78,7 @@ class SequentialFunctionRewardManagerMixin:
             response_str = self.tokenizer.decode(
                 valid_response_ids, skip_special_tokens=self.config.skip_special_tokens
             )
-            score = self.reward_fn(
-                {
-                    "response": response_str,
-                    "response_length": cur_response_length,
-                    "ground_truth": data.non_tensor_batch["ground_truth"][i],
-                }
-            )
+            score = self.reward_fn(_build_reward_input(data, response_str, cur_response_length, i))
             reward_tensor[i, cur_response_length - 1] = score["overall"]
             for key, value in score.items():
                 reward_metrics[key].append(value)
@@ -88,22 +99,7 @@ class BatchFunctionRewardManagerMixin:
             response_str = self.tokenizer.decode(
                 valid_response_ids, skip_special_tokens=self.config.skip_special_tokens
             )
-            non_tensor = data.non_tensor_batch
-            data_type = non_tensor["data_type"][i] if "data_type" in non_tensor else None
-            problem_type = non_tensor["problem_type"][i] if "problem_type" in non_tensor else None
-            problem = non_tensor["problem_reserved_text"][i] if "problem_reserved_text" in non_tensor else None
-            problem_id = non_tensor["problem_id"][i] if "problem_id" in non_tensor else None
-            reward_inputs.append(
-                {
-                    "response": response_str,
-                    "response_length": cur_response_length,
-                    "ground_truth": data.non_tensor_batch["ground_truth"][i],
-                    "data_type": data_type,
-                    "problem_type": problem_type,
-                    "problem": problem,
-                    "problem_id": problem_id,
-                }
-            )
+            reward_inputs.append(_build_reward_input(data, response_str, cur_response_length, i))
 
         scores = self.reward_fn(reward_inputs)
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)

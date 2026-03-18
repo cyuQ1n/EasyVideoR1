@@ -12,10 +12,9 @@ This project builds upon the excellent work of EasyR1 and [veRL](https://github.
 - **Mixed image-video training** with optimized gradient flow
 - Independent resolution control for images and videos
 - Video metadata support for precise frame processing
-- Comprehensive reward functions for video understanding tasks
-  - Multiple choice, numerical, OCR, open-ended QA
-  - Temporal grounding, spatial grounding, spatial-temporal grounding
-  - Object tracking, image/video segmentation
+- Default example prompt/reward stack for video understanding tasks
+  - Fully implemented in the default reward: multiple choice, numerical, temporal grounding, spatial-temporal grounding, open-ended QA
+  - Prompt formatting exists for additional task types such as spatial grounding, tracking, OCR, boolean QA, math, and code generation, but these are not fully implemented in the default reward script
 
 ## Installation
 
@@ -44,24 +43,28 @@ pip install flash-attn==2.8.3 --no-build-isolation
 
 ### 1. Prepare Dataset
 
-The dataset should be in JSON format with the following structure:
+The dataset can be in JSON or JSONL format with the following fields:
 
 ```json
-[
-  {
-    "problem": "Your question",
-    "answer": "Ground truth answer",
-    "videos": ["path/to/video.mp4"],
-    "data_type": "video",
-    "problem_type": "multiple_choice"
-  }
-]
+{
+  "problem": "Your question",
+  "answer": "Ground truth answer",
+  "videos": ["path/to/video.mp4"],
+  "data_type": "video",
+  "problem_type": "multiple choice"
+}
 ```
 
-Supported `problem_type` values:
-- `multiple_choice`, `numerical`, `regression`, `ocr`, `open_ended`, `math`
-- `temporal_grounding`, `spatial_grounding`, `spatial_temporal_grounding`
-- `tracking`, `image_segmentation`, `video_segmentation`
+When using the default example pipeline
+(`examples/videorl/format_prompt/unified.jinja` + `examples/videorl/reward_function/video_reward.py`),
+use these `problem_type` strings exactly:
+- `multiple choice`
+- `numerical`
+- `temporal grounding`
+- `spatial-temporal grounding`
+- `open-ended`
+
+The prompt template also contains branches for `regression`, `spatial grounding`, `tracking`, `ocr`, `boolean`, `math`, `code`, `svg-code`, `html-code`, and `llava`, but the default reward script does not fully support those task types yet.
 
 ### 2. Configure Training
 
