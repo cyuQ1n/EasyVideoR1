@@ -17,7 +17,7 @@ import re
 import json
 import random
 from typing import Any, Dict, List, Optional
-
+import signal
 from rouge_score import rouge_scorer
 from mathruler.grader import grade_answer
 
@@ -25,6 +25,27 @@ from mathruler.grader import grade_answer
 REWARD_NAME = "video_reward"
 REWARD_TYPE = "batch"
 
+# for safe grade_answer
+class _GradeTimeout(Exception):
+    pass
+
+
+def _timeout_handler(signum, frame):
+    raise _GradeTimeout()
+
+def grade_answer_safe(pred: str, gt: str, timeout: int = 10) -> bool:
+    """grade_answer with a timeout to prevent sympy from hanging or leaking memory."""
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.alarm(timeout)
+    try:
+        return grade_answer(pred, gt)
+    except _GradeTimeout:
+        return False
+    except Exception:
+        return False
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 # -------------------------
 # Answer extraction pattern
@@ -218,7 +239,7 @@ def accuracy_reward(response: str,
 
         # ------ Multiple Choice ------
         if ptype == "multiple choice":
-            return 1.0 if grade_answer(ans.strip(), gt.strip()) else 0.0
+            return 1.0 if grade_answer_safe(ans.strip(), gt.strip()) else 0.0
 
         # ------ Numerical ------
         if ptype == "numerical":
