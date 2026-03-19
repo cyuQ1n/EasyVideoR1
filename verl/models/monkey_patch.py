@@ -31,10 +31,12 @@ SUPPORTED_MODEL_TYPE = (
     "qwen2_5_vl",
     "qwen3_vl",
     "qwen3_vl_moe",
+    "qwen3_5",
 )
 
 QWEN2_VL_MODELS = ("qwen2_vl", "qwen2_5_vl")
 QWEN3_VL_MODELS = ("qwen3_vl", "qwen3_vl_moe")
+QWEN3_5_MODELS = ("qwen3_5",)
 
 
 def apply_ulysses_patch(model_type: str) -> None:
@@ -76,3 +78,12 @@ def apply_ulysses_patch(model_type: str) -> None:
         # TODO: add linear cross entropy kernels
         Qwen3VLForConditionalGeneration.forward = qwen3_vl_model_forward
         Qwen3VLMoeForConditionalGeneration.forward = qwen3_vl_model_forward
+    elif model_type in QWEN3_5_MODELS:
+        from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5ForConditionalGeneration, Qwen3_5Model
+
+        from .transformers.qwen3_5 import qwen3_5_base_forward, qwen3_5_model_forward
+
+        # fix text-image mixed data
+        Qwen3_5Model.forward = qwen3_5_base_forward
+        # TODO: add linear cross entropy kernels
+        Qwen3_5ForConditionalGeneration.forward = qwen3_5_model_forward
