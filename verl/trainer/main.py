@@ -69,7 +69,10 @@ class Runner:
         reward_fn = RemoteRewardManager.remote(config.worker.reward, tokenizer)
         val_reward_fn = RemoteRewardManager.remote(config.worker.reward, tokenizer)
 
-        train_dataloader, val_dataloader = create_dataloader(config.data, tokenizer, processor)
+        train_dataloader, val_dataloader = create_dataloader(
+            config.data, tokenizer, processor,
+            model_path=config.worker.actor.model.model_path,
+        )
 
         trainer = RayPPOTrainer(
             config=config,

@@ -35,7 +35,10 @@ from transformers import (
     GenerationConfig,
     PreTrainedModel,
 )
-from transformers.modeling_utils import no_init_weights
+try:
+    from transformers.modeling_utils import no_init_weights
+except ImportError:
+    from transformers.initialization import no_init_weights
 
 from ..models.monkey_patch import apply_ulysses_patch
 from ..protocol import DataProto

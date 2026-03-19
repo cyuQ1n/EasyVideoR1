@@ -1,0 +1,137 @@
+# Mix-Policy Training Configuration
+# 混合策略训练配置：将预采集的离线轨迹与在线生成混合进行RL训练
+#
+# 数据格式要求：
+# 训练数据JSON中需要包含以下字段用于mix-policy:
+# {
+#     "problem": "问题内容...",
+#     "answer": "正确答案",
+#     "videos": ["path/to/video.mp4"],
+#     "has_offline_trajectory": true,          # 是否有预采集轨迹
+#     "offline_output": "<think>...</think><answer>A</answer>"  # 预采集的模型输出
+# }
+#
+# Mix-policy 逻辑:
+# - 有离线轨迹的样本: 在线生成 n-1 个 + 1 个离线轨迹 = n 个总样本
+# - 没有离线轨迹的样本: 在线生成 n 个 = n 个总样本
+
+data:
+  # train_files: ./data/video_train_data_v1.json
+  # val_files: ./data/eval_1000_samples.json
+  train_files: ${oc.env:EASYVIDEORL_TRAIN_FILES,./data/video_train_data_v1_preprocessed_sampled_1000.json}
+  val_files: ${oc.env:EASYVIDEORL_VAL_FILES,./data/eval_1000_samples_preprocessed_sampled_100.json}
+  
+  prompt_key: problem
+  answer_key: answer
+  image_key: images
+  video_key: videos
+  use_preprocessed_videos: true
+  preprocessed_video_dir: ${oc.env:EASYVIDEORL_PREPROCESSED_VIDEO_DIR,./preprocessed_videos}  # 训练集和评测集共用
+  image_dir: ${oc.env:EASYVIDEORL_IMAGE_DIR,./images}
+  
+  video_fps: 2.0
+  video_max_frames: 128
+  max_prompt_length: 20000
+  max_response_length: 4096
+  rollout_batch_size: 16
+  mini_rollout_batch_size: null
+  val_batch_size: 64
+  format_prompt: "examples/video_rl_v2/format_prompt/unified.jinja"
+  override_chat_template: null
+  shuffle: false
+  seed: 42
+  min_pixels: 3136
+  max_pixels: 262144
+  image_max_pixels: 1048576
+  video_max_pixels: 262144
+  filter_overlong_prompts: false
+
+algorithm:
+  adv_estimator: grpo
+  disable_kl: true
+  use_kl_loss: true
+  kl_penalty: low_var_kl
+  kl_coef: 1.0e-2
+  online_filtering: true
+  filter_key: overall
+  filter_low: 0.01
+  filter_high: 0.99
+
+worker:
+  actor:
+    global_batch_size: 16
+    micro_batch_size_per_device_for_update: 1
+    micro_batch_size_per_device_for_experience: 1
+    max_grad_norm: 1.0
+    padding_free: true
+    dynamic_batching: true
+    max_token_len_per_gpu: 24096
+    ulysses_size: 1
+    model:
+      model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,Qwen/Qwen3-VL-8B-Instruct}
+      enable_gradient_checkpointing: true
+      trust_remote_code: false
+      freeze_vision_tower: false
+    optim:
+      lr: 1.0e-6
+      weight_decay: 1.0e-2
+      strategy: adamw
+      lr_warmup_ratio: 0.0
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+      offload_optimizer: false
+
+  rollout:
+    n: 4  # 总样本数: 有离线轨迹时 7在线+1离线, 无离线轨迹时 8在线
+    temperature: 1.0
+    top_p: 1.0
+    limit_images: 5
+    gpu_memory_utilization: 0.8
+    enforce_eager: false
+    enable_chunked_prefill: false
+    tensor_parallel_size: 1
+    max_num_batched_tokens: 25000
+    disable_tqdm: true
+
+    # Mix-policy 配置
+    enable_mix_policy: false  # 启用混合策略训练
+
+    val_override_config:
+      temperature: 0.7
+      top_p: 0.95
+      n: 1
+
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+
+  reward:
+    reward_function: examples/video_rl_v2/video_v1.py:compute_score
+
+trainer:
+  total_epochs: 10
+  max_steps: null
+  project_name: video_rl
+  experiment_name: "demo"
+  logger: ["file", "wandb"]
+  nnodes: 1
+  n_gpus_per_node: 8
+  max_try_make_batch: 20
+  val_freq: 30
+  val_before_train: false
+  val_only: false
+  val_generations_to_log: 3
+  save_freq: 10
+  save_limit: 5
+  save_model_only: false
+  save_checkpoint_path: null
+  load_checkpoint_path: null
+  find_last_checkpoint: true

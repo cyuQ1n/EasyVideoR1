@@ -1,0 +1,125 @@
+# Qwen3.5-2B Video RL Training Configuration
+# Based on video_rl_v1_vanilla.yaml, adapted for Qwen3.5-2B model
+#
+# Key differences from Qwen3-VL:
+# - model_type: qwen3_5 (hybrid linear_attention + full_attention)
+# - Smaller model (2B) -> adjusted batch sizes and memory settings
+# - Uses same Qwen3VLProcessor but with Qwen3.5 position encoding
+
+data:
+  train_files: ${oc.env:EASYVIDEORL_TRAIN_FILES,./data/video_train_data_v1_preprocessed_sampled_1000.json}
+  val_files: ${oc.env:EASYVIDEORL_VAL_FILES,./data/eval_1000_samples_preprocessed_sampled_100.json}
+
+  prompt_key: problem
+  answer_key: answer
+  image_key: images
+  video_key: videos
+  use_preprocessed_videos: true
+  preprocessed_video_dir: ${oc.env:EASYVIDEORL_PREPROCESSED_VIDEO_DIR,./preprocessed_videos}
+  image_dir: ${oc.env:EASYVIDEORL_IMAGE_DIR,./images}
+
+  video_fps: 2.0
+  video_max_frames: 128
+  max_prompt_length: 20000
+  max_response_length: 4096
+  rollout_batch_size: 16
+  mini_rollout_batch_size: null
+  val_batch_size: 64
+  format_prompt: "examples/video_rl_v2/format_prompt/unified.jinja"
+  override_chat_template: null
+  shuffle: false
+  seed: 42
+  min_pixels: 3136
+  max_pixels: 262144
+  image_max_pixels: 1048576
+  video_max_pixels: 262144
+  filter_overlong_prompts: false
+
+algorithm:
+  adv_estimator: grpo
+  disable_kl: true
+  use_kl_loss: true
+  kl_penalty: low_var_kl
+  kl_coef: 1.0e-2
+  online_filtering: true
+  filter_key: overall
+  filter_low: 0.01
+  filter_high: 0.99
+
+worker:
+  actor:
+    global_batch_size: 16
+    micro_batch_size_per_device_for_update: 1
+    micro_batch_size_per_device_for_experience: 1
+    max_grad_norm: 1.0
+    padding_free: true
+    dynamic_batching: true
+    max_token_len_per_gpu: 32000
+    ulysses_size: 1
+    model:
+      model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}
+      enable_gradient_checkpointing: true
+      trust_remote_code: false
+      freeze_vision_tower: false
+    optim:
+      lr: 1.0e-6
+      weight_decay: 1.0e-2
+      strategy: adamw
+      lr_warmup_ratio: 0.0
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+      offload_optimizer: false
+
+  rollout:
+    n: 4
+    temperature: 1.0
+    top_p: 1.0
+    limit_images: 5
+    gpu_memory_utilization: 0.2
+    enforce_eager: false
+    enable_chunked_prefill: false
+    tensor_parallel_size: 1
+    max_num_batched_tokens: 25000
+    disable_tqdm: true
+
+    enable_mix_policy: false
+
+    val_override_config:
+      temperature: 0.7
+      top_p: 0.95
+      n: 1
+
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+
+  reward:
+    reward_function: examples/video_rl_v2/video_v1.py:compute_score
+
+trainer:
+  total_epochs: 10
+  max_steps: null
+  project_name: video_rl_qwen3_5
+  experiment_name: "qwen3_5_2b_demo"
+  logger: ["file", "wandb"]
+  nnodes: 1
+  n_gpus_per_node: 8
+  max_try_make_batch: 20
+  val_freq: 30
+  val_before_train: false
+  val_only: false
+  val_generations_to_log: 3
+  save_freq: 10
+  save_limit: 5
+  save_model_only: false
+  save_checkpoint_path: null
+  load_checkpoint_path: null
+  find_last_checkpoint: true

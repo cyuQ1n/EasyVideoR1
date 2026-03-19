@@ -43,6 +43,8 @@ if is_flash_attn_2_available():
 def prepare_fa2_from_position_ids(
     query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, position_ids: torch.Tensor
 ):
+    if position_ids.ndim == 3:
+        position_ids = position_ids[0]
     assert position_ids.ndim == 2  # (batch_size, seq_length)
     query = query.contiguous().view(-1, query.size(-2), query.size(-1))
     key = key.contiguous().view(-1, key.size(-2), key.size(-1))
@@ -101,7 +103,13 @@ def _custom_flash_attention_forward(
         position_ids = dist.all_gather(position_ids_lst, position_ids, group=get_ulysses_sequence_parallel_group())
         position_ids = torch.cat(position_ids_lst, dim=-1)  # (batch_size, seq_length)
 
-    if position_ids is not None and query_length != 1 and not (torch.diff(position_ids, dim=-1) >= 0).all():
+    position_ids_for_check = position_ids[0] if position_ids is not None and position_ids.ndim == 3 else position_ids
+
+    if (
+        position_ids_for_check is not None
+        and query_length != 1
+        and not (torch.diff(position_ids_for_check, dim=-1) >= 0).all()
+    ):
         batch_size = query_states.size(0)
         q, k, v, (cu_seqlens_q, cu_seqlens_k), (max_seqlen_q, max_seqlen_k) = prepare_fa2_from_position_ids(
             query_states, key_states, value_states, position_ids
