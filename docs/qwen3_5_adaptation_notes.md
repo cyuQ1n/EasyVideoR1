@@ -2,8 +2,8 @@
 
 > 日期：2026-03-13
 > 目标：在 EasyVideoR1 框架中支持 Qwen3.5 系列（model_type: `qwen3_5`）的视频 RL 训练
-> 验证模型：Qwen3.5-2B（`/pfs/qcy/models/Qwen3.5-2B`）
-> 运行环境：`/pfs/siqingyi/miniconda3/envs/rl-for-qwen3.5`（Python 3.12, vLLM 0.17.0, transformers 5.3.0, torch 2.10.0+cu128）
+> 验证模型：Qwen3.5-2B（默认配置使用 `${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}`）
+> 运行环境：conda 环境 `rl-for-qwen3.5`（Python 3.12, vLLM 0.17.0, transformers 5.3.0, torch 2.10.0+cu128）
 
 ---
 
@@ -23,7 +23,7 @@
 ### 2. `examples/video_rl_v2/video_rl_v1_qwen3_5.yaml`（训练配置）
 
 基于 `video_rl_v1_vanilla.yaml` 调整：
-- `model_path: /pfs/qcy/models/Qwen3.5-2B`
+- `model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}`
 - `micro_batch_size_per_device_for_update: 1`（减小显存占用）
 - `micro_batch_size_per_device_for_experience: 1`
 - `max_token_len_per_gpu: 32000`
