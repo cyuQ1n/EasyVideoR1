@@ -7,16 +7,16 @@
 # - Uses same Qwen3VLProcessor but with Qwen3.5 position encoding
 
 data:
-  train_files: /pfs/qcy/RL_HOME/EasyVideoRL-for-Qwen3.5/data/video_train_data_v1_preprocessed_sampled_1000.json
-  val_files: /pfs/qcy/RL_HOME/EasyVideoRL-for-Qwen3.5/data/eval_1000_samples_preprocessed_sampled_100.json
+  train_files: ${oc.env:EASYVIDEORL_TRAIN_FILES,./data/video_train_data_v1_preprocessed_sampled_1000.json}
+  val_files: ${oc.env:EASYVIDEORL_VAL_FILES,./data/eval_1000_samples_preprocessed_sampled_100.json}
 
   prompt_key: problem
   answer_key: answer
   image_key: images
   video_key: videos
   use_preprocessed_videos: true
-  preprocessed_video_dir: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/preprocessed_videos
-  image_dir: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/train_data/images
+  preprocessed_video_dir: ${oc.env:EASYVIDEORL_PREPROCESSED_VIDEO_DIR,./preprocessed_videos}
+  image_dir: ${oc.env:EASYVIDEORL_IMAGE_DIR,./images}
 
   video_fps: 2.0
   video_max_frames: 128
@@ -57,7 +57,7 @@ worker:
     max_token_len_per_gpu: 32000
     ulysses_size: 1
     model:
-      model_path: /pfs/qcy/models/Qwen3.5-2B
+      model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}
       enable_gradient_checkpointing: true
       trust_remote_code: false
       freeze_vision_tower: false

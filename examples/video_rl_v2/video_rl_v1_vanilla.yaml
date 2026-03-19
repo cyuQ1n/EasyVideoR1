@@ -16,18 +16,18 @@
 # - 没有离线轨迹的样本: 在线生成 n 个 = n 个总样本
 
 data:
-  # train_files: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/train_data/video_train_data_v1.json
-  # val_files: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/val_data/eval_1000_samples.json
-  train_files: /pfs/qcy/RL_HOME/EasyVideoRL-for-Qwen3.5/data/video_train_data_v1_preprocessed_sampled_1000.json
-  val_files: /pfs/qcy/RL_HOME/EasyVideoRL-for-Qwen3.5/data/eval_1000_samples_preprocessed_sampled_100.json
+  # train_files: ./data/video_train_data_v1.json
+  # val_files: ./data/eval_1000_samples.json
+  train_files: ${oc.env:EASYVIDEORL_TRAIN_FILES,./data/video_train_data_v1_preprocessed_sampled_1000.json}
+  val_files: ${oc.env:EASYVIDEORL_VAL_FILES,./data/eval_1000_samples_preprocessed_sampled_100.json}
   
   prompt_key: problem
   answer_key: answer
   image_key: images
   video_key: videos
   use_preprocessed_videos: true
-  preprocessed_video_dir: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/preprocessed_videos  # 训练集和评测集共用
-  image_dir: /pfs/qcy/near-policy/EasyR1-For-Qwen3-VL/train_data/images
+  preprocessed_video_dir: ${oc.env:EASYVIDEORL_PREPROCESSED_VIDEO_DIR,./preprocessed_videos}  # 训练集和评测集共用
+  image_dir: ${oc.env:EASYVIDEORL_IMAGE_DIR,./images}
   
   video_fps: 2.0
   video_max_frames: 128
@@ -68,7 +68,7 @@ worker:
     max_token_len_per_gpu: 24096
     ulysses_size: 1
     model:
-      model_path: Qwen/Qwen3-VL-8B-Instruct
+      model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,Qwen/Qwen3-VL-8B-Instruct}
       enable_gradient_checkpointing: true
       trust_remote_code: false
       freeze_vision_tower: false

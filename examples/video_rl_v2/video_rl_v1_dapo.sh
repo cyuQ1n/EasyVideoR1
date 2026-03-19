@@ -3,13 +3,22 @@
 set -euo pipefail
 set -x
 
-# Training Script for Qwen3-VL (multi-node)
+# Training Script for Video RL v2 (multi-node)
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+PROJECT_DIR=${PROJECT_DIR:-$(cd -- "${SCRIPT_DIR}/../.." && pwd)}
 
 # =============================================================================
 # 环境与路径配置
 # =============================================================================
-export PATH="/pfs/siqingyi/miniconda3/bin:$PATH"
-source activate rl-for-qwen3.5
+if [[ -n "${CONDA_ENV_NAME:-}" ]]; then
+    if ! command -v conda >/dev/null 2>&1; then
+        echo "CONDA_ENV_NAME is set but conda is not available on PATH." >&2
+        exit 1
+    fi
+    eval "$(conda shell.bash hook)"
+    conda activate "${CONDA_ENV_NAME}"
+fi
 
 export WANDB_API_KEY="${WANDB_API_KEY:-}"
 export TOKENIZERS_PARALLELISM=false
@@ -21,8 +30,8 @@ export MKL_NUM_THREADS=1
 
 # CUDA 配置
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export NCCL_TIMEOUT=1800000  # 30分钟超时
-export NCCL_DEBUG=INFO       # 启用NCCL调试信息
+export NCCL_TIMEOUT=1800000
+export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=ALL
 
 # 关键: 添加详细日志
@@ -42,7 +51,7 @@ RAY_DASHBOARD_PORT=${RAY_DASHBOARD_PORT:-8265}
 # =============================================================================
 # 日志配置
 # =============================================================================
-LOG_DIR=${LOG_DIR:-"/pfs/qcy/RL_HOME/EasyVideoR1/logs/video_rl_v2_dapo"}
+LOG_DIR=${LOG_DIR:-"${PROJECT_DIR}/logs/video_rl_v2_dapo"}
 mkdir -p "$LOG_DIR"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
@@ -50,16 +59,14 @@ LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
 # =============================================================================
 # 模型和配置
 # =============================================================================
-PROJECT_DIR=/pfs/qcy/RL_HOME/EasyVideoR1
-CONFIG_PATH=${CONFIG_PATH:-"$PROJECT_DIR/examples/video_rl_v2/video_rl_v1_qwen3_5.yaml"}
-MODEL_PATH=${MODEL_PATH:-"/pfs/qcy/models/Qwen3.5-2B"}
-# MODEL_PATH=${MODEL_PATH:-"/pfs/qcy/models/video_v1_vanilla_0-5"}
+CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/video_rl_v2/video_rl_v1_qwen3_5.yaml"}
+MODEL_PATH=${MODEL_PATH:-"./models/Qwen3.5-2B"}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-"video_rl_v2_dapo"}
-SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"/pfs/qcy/RL_HOME/EasyVideoR1/checkpoints/video_rl_v2_dapo"}
+SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/video_rl_v2_dapo"}
 
 # Prompt模板和Reward函数路径
-FORMAT_PROMPT="examples/video_rl_v2/format_prompt/unified.jinja"
-REWARD_FUNCTION="/pfs/qcy/RL_HOME/EasyVideoR1/examples/video_rl_v2/video_v1.py:compute_score"
+FORMAT_PROMPT=${FORMAT_PROMPT:-"examples/video_rl_v2/format_prompt/unified.jinja"}
+REWARD_FUNCTION=${REWARD_FUNCTION:-"examples/video_rl_v2/video_v1.py:compute_score"}
 
 # =============================================================================
 # 打印集群信息
@@ -127,7 +134,6 @@ cd "$PROJECT_DIR"
 # 根据节点角色执行
 # =============================================================================
 if [ "$RANK" == "0" ]; then
-    # Head 节点
     cleanup_ray
 
     ray start --head \
@@ -144,7 +150,6 @@ if [ "$RANK" == "0" ]; then
         fi
     fi
 
-    # 提交训练任务
     python3 -m verl.trainer.main \
         config=${CONFIG_PATH} \
         data.format_prompt=${FORMAT_PROMPT} \
@@ -160,9 +165,7 @@ if [ "$RANK" == "0" ]; then
         2>&1 | tee -a "$LOG_FILE"
 
     echo "训练完成!"
-
 else
-    # Worker 节点
     cleanup_ray
     wait_for_head
     sleep 20

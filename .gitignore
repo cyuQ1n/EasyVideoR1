@@ -196,3 +196,8 @@ preprocessed_videos/
 !verl/models/**
 !examples/
 !examples/**
+
+# Re-ignore generated Python bytecode inside re-included source trees.
+**/__pycache__/
+**/*.py[cod]
+*$py.class
