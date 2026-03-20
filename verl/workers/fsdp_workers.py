@@ -15,7 +15,6 @@
 The main entry point to run the PPO algorithm
 """
 
-import os
 from typing import Literal, Optional, Union, cast
 
 import numpy as np
@@ -507,7 +506,7 @@ class FSDPWorker(Worker):
                                 max_pixels=video_max_pixels,
                                 max_frames=video_max_frames,
                                 video_fps=video_fps,
-                                return_fps=True
+                                return_fps=True,
                             )
                             if isinstance(result, tuple) and len(result) == 2:
                                 video_data, _ = result
@@ -535,7 +534,7 @@ class FSDPWorker(Worker):
                         if video_metadatas is not None and len(video_metadatas) > 0:
                             processor_kwargs["video_metadata"] = video_metadatas
 
-                        if hasattr(self.processor, 'video_processor') and self.processor.video_processor is not None:
+                        if hasattr(self.processor, "video_processor") and self.processor.video_processor is not None:
                             multi_modal_inputs = dict(self.processor.video_processor(**processor_kwargs))
                         else:
                             processor_kwargs["images"] = None

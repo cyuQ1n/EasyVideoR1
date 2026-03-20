@@ -7,15 +7,24 @@ import re
 import signal
 from typing import Any, Dict, List
 
-from math_verify import parse as math_parse, verify as math_verify
 from mathruler.grader import grade_answer
+
+
+try:
+    from .utils import extract_answer_math as extract_answer
+    from .utils import preprocess_ground_truth, strip_math_string
+except ImportError:
+    from utils import extract_answer_math as extract_answer
+    from utils import preprocess_ground_truth, strip_math_string
 
 
 class _GradeTimeout(Exception):
     pass
 
+
 def _timeout_handler(signum, frame):
     raise _GradeTimeout()
+
 
 def grade_answer_safe(pred: str, gt: str, timeout: int = 10) -> bool:
     """grade_answer with a timeout to prevent sympy from hanging or leaking memory."""
@@ -32,23 +41,20 @@ def grade_answer_safe(pred: str, gt: str, timeout: int = 10) -> bool:
         signal.signal(signal.SIGALRM, old_handler)
 
 
-from utils import preprocess_ground_truth, strip_math_string
-from utils import extract_answer_math as extract_answer
-
 REWARD_NAME = "math"
 REWARD_TYPE = "batch"
 
 
 def format_reward(response: str, thinking_tag: str = "thought") -> float:
     """Check whether the response follows the required thought-answer format."""
-    pattern = re.compile(
-        rf"<{thinking_tag}>.*</{thinking_tag}>.*<answer>.*</answer>", re.DOTALL
-    )
+    pattern = re.compile(rf"<{thinking_tag}>.*</{thinking_tag}>.*<answer>.*</answer>", re.DOTALL)
     format_match = re.fullmatch(pattern, response)
     return 1.0 if format_match else 0.0
 
 
-def soft_overlong_punishment(response_length: int, max_response_length: int, overlong_buffer_length: int = 3072) -> float:
+def soft_overlong_punishment(
+    response_length: int, max_response_length: int, overlong_buffer_length: int = 3072
+) -> float:
     """
     Length penalty:
     Apply a linear penalty when the generated response exceeds max_response_length.
@@ -88,7 +94,7 @@ def compute_score(
     format_weight: float = 0.1,
     overlong_penalty_factor: float = 0.1,
     thinking_tag: str = "thought",
-    **kwargs
+    **kwargs,
 ) -> List[Dict[str, float]]:
     scores = []
     for inp in reward_inputs:
@@ -100,11 +106,15 @@ def compute_score(
         accuracy_score = accuracy_reward(response, ground_truth)
         len_penalty = soft_overlong_punishment(response_length, max_response_length)
 
-        scores.append({
-            "overall": (1 - format_weight) * accuracy_score + format_weight * format_score + overlong_penalty_factor * len_penalty,
-            "format": format_score,
-            "accuracy": accuracy_score,
-            "length_penalty": len_penalty,
-        })
+        scores.append(
+            {
+                "overall": (1 - format_weight) * accuracy_score
+                + format_weight * format_score
+                + overlong_penalty_factor * len_penalty,
+                "format": format_score,
+                "accuracy": accuracy_score,
+                "length_penalty": len_penalty,
+            }
+        )
 
     return scores

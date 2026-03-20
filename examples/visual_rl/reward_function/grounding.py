@@ -5,7 +5,11 @@ Grounding Task Reward Functions (Spatial/Temporal/Spatial-Temporal)
 
 from typing import Any, Dict, List
 
-from utils import extract_answer, extract_json_from_text, iou_1d, iou_2d
+
+try:
+    from .utils import extract_answer, extract_json_from_text, iou_1d, iou_2d
+except ImportError:
+    from utils import extract_answer, extract_json_from_text, iou_1d, iou_2d
 
 REWARD_NAME = "grounding"
 REWARD_TYPE = "batch"
@@ -35,7 +39,7 @@ def spatial_reward(response: str, ground_truth: str) -> float:
             return 0.0
 
         return iou_2d(pred.get("boxes", []), gt_obj.get("boxes", []))
-    except:
+    except Exception:
         return 0.0
 
 
@@ -50,7 +54,7 @@ def temporal_reward(response: str, ground_truth: str) -> float:
             return 0.0
 
         return iou_1d(pred.get("time", []), gt_obj.get("time", []))
-    except:
+    except Exception:
         return 0.0
 
 
@@ -68,7 +72,7 @@ def spatial_temporal_reward(response: str, ground_truth: str) -> float:
         miou = mean_iou_over_intersection(pred.get("boxes", {}), gt_obj.get("boxes", {}))
 
         return 0.5 * tiou + 0.5 * miou
-    except:
+    except Exception:
         return 0.0
 
 

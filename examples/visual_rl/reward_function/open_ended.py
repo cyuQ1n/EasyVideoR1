@@ -4,18 +4,19 @@ Open-ended Task Reward Function
 """
 
 from typing import Any, Dict, List
-from rouge_score import rouge_scorer
 
+from rouge_score import rouge_scorer
 from utils import extract_answer, preprocess_ground_truth
+
 
 REWARD_NAME = "open_ended"
 REWARD_TYPE = "batch"
 
 
 def compute_rouge_score(reference: str, hypothesis: str) -> float:
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
     scores = scorer.score(reference or "", hypothesis or "")
-    return (scores['rouge1'].fmeasure + scores['rouge2'].fmeasure + scores['rougeL'].fmeasure) / 3.0
+    return (scores["rouge1"].fmeasure + scores["rouge2"].fmeasure + scores["rougeL"].fmeasure) / 3.0
 
 
 def accuracy_reward(response: str, ground_truth: str) -> float:
@@ -41,10 +42,12 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
         response = inp.get("response", "")
         ground_truth = preprocess_ground_truth(inp.get("ground_truth", ""))
         acc = accuracy_reward(response, ground_truth)
-        scores.append({
-            "overall": acc,
-            "accuracy": acc,
-            "format": 0.0,
-            "length_penalty": 0.0,
-        })
+        scores.append(
+            {
+                "overall": acc,
+                "accuracy": acc,
+                "format": 0.0,
+                "length_penalty": 0.0,
+            }
+        )
     return scores

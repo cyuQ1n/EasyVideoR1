@@ -27,7 +27,7 @@ import json
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from PIL import Image
@@ -230,7 +230,7 @@ def preprocess_dataset(
         first_char = f.read(1)
         f.seek(0)
 
-        if first_char == '[':
+        if first_char == "[":
             # JSON数组格式
             print("Detected JSON array format")
             data = json.load(f)
@@ -260,7 +260,7 @@ def preprocess_dataset(
         "fps": video_fps,
     }
 
-    print(f"\nProcessing parameters:")
+    print("\nProcessing parameters:")
     print(f"  - video_fps: {video_fps}")
     print(f"  - video_max_frames: {video_max_frames}")
     print(f"  - video_min_pixels: {video_min_pixels}")
@@ -270,10 +270,7 @@ def preprocess_dataset(
     print()
 
     # 多进程处理
-    tasks = [
-        (i, item.copy(), params, output_dir, image_dir)
-        for i, item in enumerate(data)
-    ]
+    tasks = [(i, item.copy(), params, output_dir, image_dir) for i, item in enumerate(data)]
 
     results = [None] * len(data)
     errors = []
@@ -321,7 +318,7 @@ def preprocess_dataset(
 
     # 统计信息
     preprocessed_count = len(preprocessed_items)
-    print(f"\nPreprocessing complete!")
+    print("\nPreprocessing complete!")
     print(f"  - Total samples: {len(results)}")
     print(f"  - Successfully preprocessed: {preprocessed_count}")
     print(f"  - Errors: {len(errors)}")

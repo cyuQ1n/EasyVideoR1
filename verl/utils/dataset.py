@@ -185,7 +185,7 @@ class RLHFDataset(Dataset):
             prompt_str = format_prompt.render(
                 content=prompt_str,  # 兼容旧模板
                 problem=prompt_str,  # 问题文本
-                **{k: v for k, v in example.items() if k != self.prompt_key}  # 其他字段
+                **{k: v for k, v in example.items() if k != self.prompt_key},  # 其他字段
             )
         else:
             # 只有在没有format_prompt时，才使用build_prompt添加任务特定指令
@@ -198,7 +198,7 @@ class RLHFDataset(Dataset):
         has_images = (
             self.image_key in example
             and images_data is not None
-            and hasattr(images_data, '__len__')
+            and hasattr(images_data, "__len__")
             and len(images_data) > 0
         )
         # Check if videos exist and is a non-empty list/array
@@ -206,7 +206,7 @@ class RLHFDataset(Dataset):
         has_videos = (
             self.video_key in example
             and videos_data is not None
-            and hasattr(videos_data, '__len__')
+            and hasattr(videos_data, "__len__")
             and len(videos_data) > 0
         )
 
@@ -242,7 +242,7 @@ class RLHFDataset(Dataset):
         has_images = (
             self.image_key in example
             and images_data is not None
-            and hasattr(images_data, '__len__')
+            and hasattr(images_data, "__len__")
             and len(images_data) > 0
         )
         # Check if videos exist and is a non-empty list/array
@@ -250,7 +250,7 @@ class RLHFDataset(Dataset):
         has_videos = (
             self.video_key in example
             and videos_data is not None
-            and hasattr(videos_data, '__len__')
+            and hasattr(videos_data, "__len__")
             and len(videos_data) > 0
         )
 
@@ -282,7 +282,10 @@ class RLHFDataset(Dataset):
                     processed_videos = [preprocessed_data["frames"]]
                     video_metadatas = [preprocessed_data["metadata"]]
                     model_inputs = self.processor(
-                        videos=processed_videos, text=[prompt], add_special_tokens=False, return_tensors="pt",
+                        videos=processed_videos,
+                        text=[prompt],
+                        add_special_tokens=False,
+                        return_tensors="pt",
                         video_metadata=video_metadatas,
                         do_resize=False,
                         do_sample_frames=False,
@@ -303,7 +306,7 @@ class RLHFDataset(Dataset):
                     max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                     max_frames=self.video_max_frames,
                     video_fps=self.video_fps,
-                    return_fps=True
+                    return_fps=True,
                 )
                 if isinstance(result, tuple) and len(result) == 2:
                     video_data, _ = result  # Unpack (video_data, sample_fps)
@@ -322,14 +325,20 @@ class RLHFDataset(Dataset):
 
             if video_metadatas is not None and len(video_metadatas) > 0:
                 model_inputs = self.processor(
-                    videos=processed_videos, text=[prompt], add_special_tokens=False, return_tensors="pt",
+                    videos=processed_videos,
+                    text=[prompt],
+                    add_special_tokens=False,
+                    return_tensors="pt",
                     video_metadata=video_metadatas,
                     do_resize=False,
                     do_sample_frames=False,
                 )
             else:
                 model_inputs = self.processor(
-                    videos=processed_videos, text=[prompt], add_special_tokens=False, return_tensors="pt",
+                    videos=processed_videos,
+                    text=[prompt],
+                    add_special_tokens=False,
+                    return_tensors="pt",
                     do_sample_frames=False,
                 )
             return model_inputs["input_ids"].size(-1) <= self.max_prompt_length
@@ -351,7 +360,7 @@ class RLHFDataset(Dataset):
         has_images = (
             self.image_key in example
             and images_data is not None
-            and hasattr(images_data, '__len__')
+            and hasattr(images_data, "__len__")
             and len(images_data) > 0
         )
         # Check if videos exist and is a non-empty list/array
@@ -359,7 +368,7 @@ class RLHFDataset(Dataset):
         has_videos = (
             self.video_key in example
             and videos_data is not None
-            and hasattr(videos_data, '__len__')
+            and hasattr(videos_data, "__len__")
             and len(videos_data) > 0
         )
 
@@ -405,7 +414,9 @@ class RLHFDataset(Dataset):
                     use_preprocessed_path = True
                 else:
                     # 降级：预处理文件不存在，使用原始处理逻辑
-                    print(f"Warning: Preprocessed video file not found: {preprocessed_video_path}, falling back to real-time processing")
+                    print(
+                        f"Warning: Preprocessed video file not found: {preprocessed_video_path}, falling back to real-time processing"
+                    )
                     preprocessed_video_path = None
                     if self.image_dir is not None and len(videos) != 0 and isinstance(videos[0], str):
                         videos = [os.path.join(self.image_dir, video) for video in videos]
@@ -420,7 +431,7 @@ class RLHFDataset(Dataset):
                             max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                             max_frames=self.video_max_frames,
                             video_fps=self.video_fps,
-                            return_fps=True
+                            return_fps=True,
                         )
                         processed_videos.append(processed_video)
                         video_fps_list.append(video_fps)
@@ -440,7 +451,7 @@ class RLHFDataset(Dataset):
                         max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                         max_frames=self.video_max_frames,
                         video_fps=self.video_fps,
-                        return_fps=True
+                        return_fps=True,
                     )
                     processed_videos.append(processed_video)
                     video_fps_list.append(video_fps)
@@ -448,7 +459,7 @@ class RLHFDataset(Dataset):
             # Handle video_metadata for Qwen3-VL
             if processed_videos is not None and len(processed_videos) > 0:
                 # 检查 video_metadatas 是否已经在预处理加载阶段设置
-                if 'video_metadatas' in locals() and video_metadatas is not None and len(video_metadatas) > 0:
+                if "video_metadatas" in locals() and video_metadatas is not None and len(video_metadatas) > 0:
                     # 预处理视频：直接使用 processed_videos 作为 frames
                     processed_video_frames = processed_videos
                 else:

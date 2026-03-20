@@ -1,8 +1,10 @@
 .PHONY: build commit license quality style test
 
-check_dirs := examples scripts tests verl setup.py
+check_targets := examples scripts tests verl setup.py
+check_dirs := $(strip $(foreach path,$(check_targets),$(if $(wildcard $(path)),$(path),)))
 
-code_dirs := scripts tests verl setup.py
+code_targets := scripts tests verl setup.py
+code_dirs := $(strip $(foreach path,$(code_targets),$(if $(wildcard $(path)),$(path),)))
 
 build:
 	python3 setup.py sdist bdist_wheel
@@ -12,7 +14,11 @@ commit:
 	pre-commit run --all-files
 
 license:
-	python3 tests/check_license.py $(code_dirs)
+	@if [ -f tests/check_license.py ]; then \
+		python3 tests/check_license.py $(code_dirs); \
+	else \
+		echo "tests/check_license.py not found; skipping license check."; \
+	fi
 
 quality:
 	ruff check $(check_dirs)
@@ -23,4 +29,8 @@ style:
 	ruff format $(check_dirs)
 
 test:
-	pytest -vv tests/
+	@if [ -d tests ]; then \
+		pytest -vv tests/; \
+	else \
+		echo "tests/ not found; skipping pytest."; \
+	fi

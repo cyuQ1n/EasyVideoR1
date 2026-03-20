@@ -568,8 +568,8 @@ class RayPPOTrainer:
         num_try_make_batch = 0
         print("Start generating batch...")
         timing_raw = {}
-        total_gen_time = 0.0      # 累加生成时间
-        total_reward_time = 0.0   # 累加奖励计算时间
+        total_gen_time = 0.0  # 累加生成时间
+        total_reward_time = 0.0  # 累加奖励计算时间
         while True:
             num_try_make_batch += 1
             try:
@@ -600,7 +600,7 @@ class RayPPOTrainer:
                     "raw_prompt",
                     "multi_modal_data",
                     "has_offline_trajectory",  # Mix-policy: 是否有预采集轨迹
-                    "offline_output",          # Mix-policy: 预采集的输出文本
+                    "offline_output",  # Mix-policy: 预采集的输出文本
                 ],
                 meta_info_keys=[
                     "image_min_pixels",
@@ -618,7 +618,7 @@ class RayPPOTrainer:
             # generate a batch
             t_start = time.time()
             gen_batch_output = self.actor_rollout_ref_wg.generate_sequences(gen_batch)
-            total_gen_time += (time.time() - t_start)
+            total_gen_time += time.time() - t_start
 
             if self.config.algorithm.adv_estimator == "remax":
                 gen_baseline_batch = deepcopy(gen_batch)
@@ -640,9 +640,7 @@ class RayPPOTrainer:
 
             mix_policy_acc_threshold = getattr(self.config.worker.rollout, "mix_policy_accuracy_threshold", None)
             cached_filter_reward = None
-            has_any_offline = (
-                batch_has_offline is not None and bool(np.any(np.asarray(batch_has_offline, dtype=bool)))
-            )
+            has_any_offline = batch_has_offline is not None and bool(np.any(np.asarray(batch_has_offline, dtype=bool)))
             if (
                 self.config.worker.rollout.enable_mix_policy
                 and mix_policy_acc_threshold is not None
@@ -663,8 +661,10 @@ class RayPPOTrainer:
                     non_tensor_batch_keys=[k for k in online_eval_batch.non_tensor_batch if k != "multi_modal_data"],
                 )
                 t_start = time.time()
-                online_reward_tensor, online_reward_metrics = ray.get(self.reward_fn.compute_reward.remote(online_reward_batch))
-                total_reward_time += (time.time() - t_start)
+                online_reward_tensor, online_reward_metrics = ray.get(
+                    self.reward_fn.compute_reward.remote(online_reward_batch)
+                )
+                total_reward_time += time.time() - t_start
 
                 if "accuracy" not in online_reward_metrics:
                     raise KeyError(
@@ -715,7 +715,7 @@ class RayPPOTrainer:
                         non_tensor_batch_keys=[k for k in new_batch.non_tensor_batch if k != "multi_modal_data"],
                     )
                     reward_tensor, reward_metrics = ray.get(self.reward_fn.compute_reward.remote(filter_reward_batch))
-                    total_reward_time += (time.time() - t_start)
+                    total_reward_time += time.time() - t_start
                 else:
                     reward_tensor, reward_metrics = cached_filter_reward
                 new_batch.batch["token_level_scores"] = reward_tensor

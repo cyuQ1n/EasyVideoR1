@@ -3,9 +3,9 @@
 Shared utility functions.
 """
 
-import re
 import json
-from typing import Optional, List, Dict, Any
+import re
+from typing import Dict, List, Optional
 
 
 def preprocess_ground_truth(gt: str) -> str:
@@ -17,9 +17,9 @@ def preprocess_ground_truth(gt: str) -> str:
     if not isinstance(gt, str):
         return ""
     gt = gt.strip()
-    if gt.startswith('$$') and gt.endswith('$$'):
+    if gt.startswith("$$") and gt.endswith("$$"):
         gt = gt[2:-2].strip()
-    elif gt.startswith('$') and gt.endswith('$'):
+    elif gt.startswith("$") and gt.endswith("$"):
         gt = gt[1:-1].strip()
     return gt
 
@@ -50,6 +50,7 @@ def extract_answer(text: str) -> Optional[str]:
     # Strategy 3: the full response
     return text.strip()
 
+
 def extract_answer_math(text: str) -> Optional[str]:
     """
     Extract a math answer using multiple fallback strategies.
@@ -76,18 +77,18 @@ def extract_boxed(text: str) -> str:
     results = []
     i = 0
     while i < len(text):
-        if text[i:i+7] == "\\boxed{":
+        if text[i : i + 7] == "\\boxed{":
             i += 7
             brace_level = 1
             start = i
             while i < len(text) and brace_level > 0:
-                if text[i] == '{':
+                if text[i] == "{":
                     brace_level += 1
-                elif text[i] == '}':
+                elif text[i] == "}":
                     brace_level -= 1
                 i += 1
             if brace_level == 0:
-                results.append(text[start:i-1])
+                results.append(text[start : i - 1])
         else:
             i += 1
     return results[-1] if results else ""
@@ -104,25 +105,25 @@ def extract_json_from_text(text: str) -> Optional[Dict]:
     # Try direct parsing first.
     try:
         return json.loads(text.strip())
-    except:
+    except Exception:
         pass
 
     # Try extracting from markdown code blocks.
-    code_pattern = re.compile(r'```(?:json)?\s*([\s\S]*?)\s*```')
+    code_pattern = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
     matches = code_pattern.findall(text)
     for match in matches:
         try:
             return json.loads(match.strip())
-        except:
+        except Exception:
             continue
 
     # Try finding a JSON object pattern.
-    json_pattern = re.compile(r'\{[^{}]*\}')
+    json_pattern = re.compile(r"\{[^{}]*\}")
     matches = json_pattern.findall(text)
     for match in reversed(matches):  # Search from the end.
         try:
             return json.loads(match)
-        except:
+        except Exception:
             continue
 
     return None
@@ -214,9 +215,15 @@ def parse_mcq(predict_str: str) -> str:
 
     if candidates:
         format_priority = {
-            "start": 10, "end": 9, "phrase": 7,
-            "parentheses": 6, "period": 5, "colon": 4, "right_paren": 3,
-            "space": 2, "fallback": 0
+            "start": 10,
+            "end": 9,
+            "phrase": 7,
+            "parentheses": 6,
+            "period": 5,
+            "colon": 4,
+            "right_paren": 3,
+            "space": 2,
+            "fallback": 0,
         }
         candidates.sort(key=lambda x: (format_priority.get(x[2], 0), x[1]), reverse=True)
         return candidates[0][0]
@@ -236,7 +243,7 @@ def iou_1d(pred: List[float], gt: List[float]) -> float:
         inter = max(0.0, min(e1, e2) - max(s1, s2))
         union = max(e1, e2) - min(s1, s2)
         return inter / union if union > 1e-12 else 0.0
-    except:
+    except Exception:
         return 0.0
 
 
@@ -256,5 +263,5 @@ def iou_2d(box1: List[float], box2: List[float]) -> float:
         area2 = max(0.0, X2 - X1) * max(0.0, Y2 - Y1)
         union = area1 + area2 - inter_area
         return inter_area / union if union > 1e-12 else 0.0
-    except:
+    except Exception:
         return 0.0

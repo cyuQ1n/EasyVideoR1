@@ -32,7 +32,9 @@ from .base import BaseRollout
 from .config import RolloutConfig
 
 
-def _repeat_interleave(value: Union[torch.Tensor, np.ndarray, list], repeats: int) -> Union[torch.Tensor, np.ndarray, list]:
+def _repeat_interleave(
+    value: Union[torch.Tensor, np.ndarray, list], repeats: int
+) -> Union[torch.Tensor, np.ndarray, list]:
     # repeat the elements, supports tensor, numpy array and list
     if isinstance(value, torch.Tensor):
         return value.repeat_interleave(repeats, dim=0)
@@ -120,7 +122,7 @@ def _process_multi_modal_data(
                 max_pixels=video_max_pixels,
                 max_frames=video_max_frames,
                 video_fps=video_fps,
-                return_fps=True
+                return_fps=True,
             )
             # Handle the case where processed is (frames, metadata) tuple
             if isinstance(processed, tuple) and len(processed) == 2:
@@ -129,7 +131,16 @@ def _process_multi_modal_data(
                 videos.append((frames, metadata))
             else:
                 # Fallback: if no metadata, create a minimal one
-                videos.append((processed, {"fps": 2.0, "frames_indices": list(range(len(processed))), "total_num_frames": len(processed)}))
+                videos.append(
+                    (
+                        processed,
+                        {
+                            "fps": 2.0,
+                            "frames_indices": list(range(len(processed))),
+                            "total_num_frames": len(processed),
+                        },
+                    )
+                )
 
         if len(videos) > 0:
             # do_sample_frames=False: we already sampled frames in fetch_video
@@ -168,7 +179,7 @@ class vLLMRollout(BaseRollout):
         self.use_tqdm = (self.rank == 0) and (not config.disable_tqdm)
 
         # Mix-policy 配置
-        self.enable_mix_policy = getattr(config, 'enable_mix_policy', False)
+        self.enable_mix_policy = getattr(config, "enable_mix_policy", False)
         self.mix_policy_accuracy_threshold = getattr(config, "mix_policy_accuracy_threshold", None)
         if self.enable_mix_policy and self.rank == 0:
             if self.mix_policy_accuracy_threshold is None:
@@ -255,7 +266,7 @@ class vLLMRollout(BaseRollout):
         batch_raw_prompt_ids = non_tensor_batch.pop("raw_prompt_ids")
         batch_raw_prompt = non_tensor_batch.pop("raw_prompt", None)  # 提取原始文本prompt
         batch_multi_modal_data = non_tensor_batch.pop("multi_modal_data", None)
-        batch_preprocessed_video = non_tensor_batch.pop("preprocessed_video", None)  # 不需要，已在Dataset阶段使用
+        non_tensor_batch.pop("preprocessed_video", None)  # 不需要，已在Dataset阶段使用
 
         # Mix-policy: 获取预采集轨迹信息
         batch_has_offline = non_tensor_batch.pop("has_offline_trajectory", None)
@@ -290,7 +301,9 @@ class vLLMRollout(BaseRollout):
                     for tensor, metadata in zip(video_tensors, video_metadatas_raw):
                         if isinstance(metadata, dict):
                             metadata_obj = VideoMetadata(
-                                total_num_frames=metadata.get("total_num_frames", tensor.shape[0] if hasattr(tensor, 'shape') else len(tensor)),
+                                total_num_frames=metadata.get(
+                                    "total_num_frames", tensor.shape[0] if hasattr(tensor, "shape") else len(tensor)
+                                ),
                                 fps=metadata.get("fps"),
                                 frames_indices=metadata.get("frames_indices"),
                                 video_backend=metadata.get("video_backend"),
@@ -323,7 +336,10 @@ class vLLMRollout(BaseRollout):
                             # Convert dict to VideoMetadata if needed
                             if isinstance(metadata, dict):
                                 metadata_obj = VideoMetadata(
-                                    total_num_frames=metadata.get("total_num_frames", tensor.shape[0] if hasattr(tensor, 'shape') else len(tensor)),
+                                    total_num_frames=metadata.get(
+                                        "total_num_frames",
+                                        tensor.shape[0] if hasattr(tensor, "shape") else len(tensor),
+                                    ),
                                     fps=metadata.get("fps"),
                                     frames_indices=metadata.get("frames_indices"),
                                     video_backend=metadata.get("video_backend"),

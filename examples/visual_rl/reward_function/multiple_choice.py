@@ -4,9 +4,10 @@ Multiple Choice Task Reward Function
 """
 
 from typing import Any, Dict, List
-from mathruler.grader import grade_answer
 
-from utils import extract_answer, preprocess_ground_truth, parse_mcq
+from mathruler.grader import grade_answer
+from utils import extract_answer, parse_mcq, preprocess_ground_truth
+
 
 REWARD_NAME = "multiple_choice"
 REWARD_TYPE = "batch"
@@ -31,10 +32,12 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
         response = inp.get("response", "")
         ground_truth = preprocess_ground_truth(inp.get("ground_truth", ""))
         acc = accuracy_reward(response, ground_truth)
-        scores.append({
-            "overall": acc,
-            "accuracy": acc,
-            "format": 0.0,
-            "length_penalty": 0.0,
-        })
+        scores.append(
+            {
+                "overall": acc,
+                "accuracy": acc,
+                "format": 0.0,
+                "length_penalty": 0.0,
+            }
+        )
     return scores

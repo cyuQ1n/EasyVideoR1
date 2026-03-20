@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from utils import extract_answer, preprocess_ground_truth
 
+
 REWARD_NAME = "llava"
 REWARD_TYPE = "batch"
 
@@ -22,27 +23,27 @@ def normalize_label(text: str) -> int:
     text = text.lower().strip()
 
     # Format: Response 1, Response A, 1, A, first
-    if text in ['response 1', 'response a', '1', 'a', 'first']:
+    if text in ["response 1", "response a", "1", "a", "first"]:
         return 1
-    if 'response 1' in text or 'response a' in text:
+    if "response 1" in text or "response a" in text:
         return 1
 
     # Format: Response 2, Response B, 2, B, second
-    if text in ['response 2', 'response b', '2', 'b', 'second']:
+    if text in ["response 2", "response b", "2", "b", "second"]:
         return 2
-    if 'response 2' in text or 'response b' in text:
+    if "response 2" in text or "response b" in text:
         return 2
 
     # Format: Tie, equally good, both, equal
-    if text == 'tie':
+    if text == "tie":
         return 0
-    if 'equally' in text or 'both' in text or 'equal' in text or 'tie' in text:
+    if "equally" in text or "both" in text or "equal" in text or "tie" in text:
         return 0
 
     # Also handle descriptions that mention first/second.
-    if 'first' in text:
+    if "first" in text:
         return 1
-    if 'second' in text:
+    if "second" in text:
         return 2
 
     return -1  # Invalid label
@@ -66,10 +67,12 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
         response = inp.get("response", "")
         ground_truth = preprocess_ground_truth(inp.get("ground_truth", ""))
         acc = accuracy_reward(response, ground_truth)
-        scores.append({
-            "overall": acc,
-            "accuracy": acc,
-            "format": 0.0,
-            "length_penalty": 0.0,
-        })
+        scores.append(
+            {
+                "overall": acc,
+                "accuracy": acc,
+                "format": 0.0,
+                "length_penalty": 0.0,
+            }
+        )
     return scores

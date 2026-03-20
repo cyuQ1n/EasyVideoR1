@@ -13,17 +13,21 @@ Reward composition:
            + format_weight * format
            + length_penalty_factor * length_penalty
 """
-import re
+
 import json
 import random
-from typing import Any, Dict, List, Optional
+import re
 import signal
-from rouge_score import rouge_scorer
+from typing import Any, Dict, List, Optional
+
 from mathruler.grader import grade_answer
+from rouge_score import rouge_scorer
+
 
 # Reward function metadata
 REWARD_NAME = "video_reward"
 REWARD_TYPE = "batch"
+
 
 # for safe grade_answer
 class _GradeTimeout(Exception):
@@ -32,6 +36,7 @@ class _GradeTimeout(Exception):
 
 def _timeout_handler(signum, frame):
     raise _GradeTimeout()
+
 
 def grade_answer_safe(pred: str, gt: str, timeout: int = 10) -> bool:
     """grade_answer with a timeout to prevent sympy from hanging or leaking memory."""
@@ -47,21 +52,16 @@ def grade_answer_safe(pred: str, gt: str, timeout: int = 10) -> bool:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old_handler)
 
+
 # -------------------------
 # Answer extraction pattern
 # -------------------------
-ANSWER_CAPTURE_PATTERN = re.compile(
-    r"<answer>\s*(.*?)\s*</answer>",
-    re.DOTALL
-)
+ANSWER_CAPTURE_PATTERN = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.DOTALL)
 
 # -------------------------
 # Format check pattern
 # -------------------------
-FORMAT_PATTERN = re.compile(
-    r"<thought>.*</thought>.*<answer>.*</answer>",
-    re.DOTALL
-)
+FORMAT_PATTERN = re.compile(r"<thought>.*</thought>.*<answer>.*</answer>", re.DOTALL)
 
 
 # -------------------------
@@ -85,9 +85,9 @@ def normalize_number(num_str: str) -> Optional[float]:
 
 def compute_rouge_score(reference: str, hypothesis: str) -> float:
     """Compute average ROUGE score (rouge1, rouge2, rougeL)."""
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
     scores = scorer.score(reference or "", hypothesis or "")
-    return (scores['rouge1'].fmeasure + scores['rouge2'].fmeasure + scores['rougeL'].fmeasure) / 3.0
+    return (scores["rouge1"].fmeasure + scores["rouge2"].fmeasure + scores["rougeL"].fmeasure) / 3.0
 
 
 # -------------------------
@@ -102,10 +102,9 @@ def format_reward(response: str) -> float:
 # -------------------------
 # Length penalty (bidirectional)
 # -------------------------
-def soft_length_penalty(response_length: int,
-                        max_response_length: int,
-                        min_expected_length: int = 128,
-                        overlong_buffer_length: int = 3072) -> float:
+def soft_length_penalty(
+    response_length: int, max_response_length: int, min_expected_length: int = 128, overlong_buffer_length: int = 3072
+) -> float:
     """
     Bidirectional length penalty that encourages responses of a reasonable size.
     - Too short (< min_expected_length): linear penalty from -1 to 0
@@ -186,8 +185,7 @@ def iou_2d(box1: List[float], box2: List[float]) -> float:
     return inter_area / union if union > 1e-12 else 0.0
 
 
-def mean_iou_over_intersection(pred_boxes: Dict[str, List[float]],
-                                gt_boxes: Dict[str, List[float]]) -> float:
+def mean_iou_over_intersection(pred_boxes: Dict[str, List[float]], gt_boxes: Dict[str, List[float]]) -> float:
     """
     Compute mean IoU over intersection of frame keys.
     For spatial-temporal grounding: IoU averaged only over common frames.
@@ -216,10 +214,7 @@ def _load_json(s: str) -> Optional[Any]:
 # -------------------------
 # Accuracy reward function
 # -------------------------
-def accuracy_reward(response: str,
-                    ground_truth: str,
-                    data_type: str,
-                    problem_type: str) -> float:
+def accuracy_reward(response: str, ground_truth: str, data_type: str, problem_type: str) -> float:
     """
     Compute accuracy reward ∈ [0, 1] based on problem type.
 
@@ -298,7 +293,7 @@ def compute_score(
     length_penalty_factor: float = 0.0,
     min_expected_length: int = 128,
     overlong_buffer_length: int = 3072,
-    **kwargs
+    **kwargs,
 ) -> List[Dict[str, float]]:
     """
     Batch interface for computing rewards.
@@ -345,7 +340,8 @@ def compute_score(
             a_score = accuracy_reward(response, gt_extracted, data_type, problem_type)
             f_score = format_reward(response)
             l_penalty = soft_length_penalty(
-                response_length, max_response_length,
+                response_length,
+                max_response_length,
                 min_expected_length=min_expected_length,
                 overlong_buffer_length=overlong_buffer_length,
             )
@@ -357,20 +353,24 @@ def compute_score(
                 + length_penalty_factor * l_penalty
             )
 
-            results.append({
-                "overall": float(overall),
-                "accuracy": float(a_score),
-                "format": float(f_score),
-                "length_penalty": float(l_penalty),
-            })
+            results.append(
+                {
+                    "overall": float(overall),
+                    "accuracy": float(a_score),
+                    "format": float(f_score),
+                    "length_penalty": float(l_penalty),
+                }
+            )
 
         except Exception:
-            results.append({
-                "overall": 0.0,
-                "accuracy": 0.0,
-                "format": 0.0,
-                "length_penalty": 0.0,
-            })
+            results.append(
+                {
+                    "overall": 0.0,
+                    "accuracy": 0.0,
+                    "format": 0.0,
+                    "length_penalty": 0.0,
+                }
+            )
 
     # Debug logging (10% sample rate)
     if random.random() < 0.1:
