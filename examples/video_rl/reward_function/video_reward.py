@@ -94,7 +94,7 @@ def compute_rouge_score(reference: str, hypothesis: str) -> float:
 # Format reward
 # -------------------------
 def format_reward(response: str) -> float:
-    """检查格式: <thought>...</thought>...<answer>...</answer>"""
+    """Check whether the response follows the required thought-answer format."""
     format_match = re.fullmatch(FORMAT_PATTERN, response)
     return 1.0 if format_match else 0.0
 
@@ -107,19 +107,19 @@ def soft_length_penalty(response_length: int,
                         min_expected_length: int = 128,
                         overlong_buffer_length: int = 3072) -> float:
     """
-    双向长度惩罚：鼓励模型输出不长不短
-    - 太短 (< min_expected_length): 线性惩罚，从 -1 到 0
-    - 正常范围: 0（无惩罚）
-    - 接近上限 (expected_len ~ max_response_length): 线性惩罚，从 0 到 -1
-    - 超长 (> max_response_length): -1
+    Bidirectional length penalty that encourages responses of a reasonable size.
+    - Too short (< min_expected_length): linear penalty from -1 to 0
+    - Normal range: 0 (no penalty)
+    - Near the upper bound (expected_len ~ max_response_length): linear penalty from 0 to -1
+    - Too long (> max_response_length): -1
     """
-    # 过短惩罚：length=0 → -1, length=min_expected → 0
+    # Too-short penalty: length=0 -> -1, length=min_expected -> 0
     if response_length < min_expected_length:
         if min_expected_length <= 0:
             return 0.0
         return max(-1.0, response_length / min_expected_length - 1.0)
 
-    # 过长惩罚
+    # Too-long penalty
     expected_len = max_response_length - overlong_buffer_length
     if response_length <= expected_len:
         return 0.0
@@ -316,11 +316,11 @@ def compute_score(
         overall = (1-fw-lp) * accuracy + fw * format + lp * length_penalty
 
     Args:
-        max_response_length: 最大允许响应长度（token数）
-        format_weight: 格式奖励权重
-        length_penalty_factor: 长度惩罚权重
-        min_expected_length: 最短期望响应长度（低于此值有惩罚）
-        overlong_buffer_length: 过长缓冲区长度
+        max_response_length: Maximum allowed response length in tokens.
+        format_weight: Weight assigned to the format reward.
+        length_penalty_factor: Weight assigned to the length penalty.
+        min_expected_length: Minimum expected response length before penalty applies.
+        overlong_buffer_length: Buffer length for the overlong penalty region.
     """
     if not isinstance(reward_inputs, list):
         raise ValueError("Please use `reward_type=batch` for this reward function.")

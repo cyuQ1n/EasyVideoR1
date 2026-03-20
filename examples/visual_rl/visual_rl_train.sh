@@ -1,12 +1,28 @@
 #!/bin/bash
+# =============================================================================
+# Visual RL Training Script
+# RL training launcher for mixed image-video tasks
+#
+# Usage:
+#   Single node: bash examples/visual_rl/visual_rl_train.sh
+#   Multi-node:
+#     Node 0 (Head): WORLD_SIZE=2 RANK=0 MASTER_ADDR=<head_ip> bash examples/visual_rl/visual_rl_train.sh
+#     Node 1 (Worker): WORLD_SIZE=2 RANK=1 MASTER_ADDR=<head_ip> bash examples/visual_rl/visual_rl_train.sh
+#
+# Environment variables:
+#   MODEL_PATH: model path (default: Qwen/Qwen3-VL-8B-Instruct)
+#   TRAIN_DATA: training data path
+#   VAL_DATA: validation data path
+#   OUTPUT_PATH: output path
+#   EXPERIMENT_NAME: experiment name
+#   NPROC_PER_NODE: GPUs per node (default: 8)
+# =============================================================================
 
 set -euo pipefail
 set -x
 
-# VideoRL Training Script for Qwen3-VL (multi-node)
-
 # =============================================================================
-# Environment Configuration
+# Environment variables
 # =============================================================================
 export WANDB_API_KEY=${WANDB_API_KEY:-"your_wandb_api_key"}
 export TOKENIZERS_PARALLELISM=false
@@ -16,22 +32,17 @@ export RAYON_NUM_THREADS=4
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-# CUDA Configuration
+# CUDA configuration
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export NCCL_TIMEOUT=3600000
-export NCCL_DEBUG=INFO
+export NCCL_TIMEOUT=1800000  # 30-minute timeout
+export NCCL_DEBUG=INFO       # Enable NCCL debug logs
 export NCCL_DEBUG_SUBSYS=ALL
 
-# Fix NCCL communication issues
-export NCCL_NVLS_ENABLE=0           # Disable NVLS, fix transport/nvls.cc Cuda failure
-export NCCL_IB_RETRY_CNT=20         # Increase IB retry count for InfiniBand network jitter
-export NCCL_IB_TIMEOUT=23           # Increase IB timeout
-
-# VERL log level
+# Important: enable verbose VERL logging
 export VERL_LOG_LEVEL=DEBUG
 
 # =============================================================================
-# Multi-node Distributed Configuration
+# Multi-node distributed configuration
 # =============================================================================
 export WORLD_SIZE=${WORLD_SIZE:-1}
 export RANK=${RANK:-0}
@@ -45,7 +56,7 @@ RAY_DASHBOARD_PORT=${RAY_DASHBOARD_PORT:-8265}
 # Project & Log Configuration
 # =============================================================================
 PROJECT_DIR=$(cd "$(dirname "$0")/../.." && pwd)
-LOG_DIR=${LOG_DIR:-"${PROJECT_DIR}/logs/video_rl_experiment"}
+LOG_DIR=${LOG_DIR:-"${PROJECT_DIR}/logs/visual_rl_experiment"}
 mkdir -p "$LOG_DIR"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
@@ -53,38 +64,46 @@ LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
 # =============================================================================
 # Model & Data Configuration
 # =============================================================================
-CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/videorl/video_rl.yaml"}
+CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/visual_rl/visual_rl_config.yaml"}
 MODEL_PATH=${MODEL_PATH:-"Qwen/Qwen3-VL-8B-Instruct"}
 TRAIN_DATA=${TRAIN_DATA:-"/path/to/your/train_data.jsonl"}
 VAL_DATA=${VAL_DATA:-"/path/to/your/val_data.json"}
-EXPERIMENT_NAME=${EXPERIMENT_NAME:-"video_rl_experiment"}
-SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/video_rl/${EXPERIMENT_NAME}"}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-"visual_rl_experiment"}
+SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/visual_rl/${EXPERIMENT_NAME}"}
 FIND_LAST_CHECKPOINT=${FIND_LAST_CHECKPOINT:-true}
 
 # Prompt template & Reward function paths
-FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/videorl/format_prompt/unified.jinja"}
-REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/videorl/reward_function/video_reward.py:compute_score"}
+FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/visual_rl/format_prompt/unified.jinja"}
+REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/visual_rl/reward_function/unified.py:compute_score"}
+
 
 # =============================================================================
-# Print Cluster Info
+# Print configuration
 # =============================================================================
 echo "============================================================"
-echo "  Total nodes: ${WORLD_SIZE}, Current node: ${RANK}"
+echo "  Visual RL Training - Distributed Mode"
+echo "============================================================"
+echo "  Total nodes: ${WORLD_SIZE}, current node: ${RANK}"
 echo "  Head node: ${MASTER_ADDR}:${MASTER_PORT}"
-echo "  GPUs per node: ${NPROC_PER_NODE}, Total GPUs: $((WORLD_SIZE * NPROC_PER_NODE))"
-echo "  Config: ${CONFIG_PATH}"
-echo "  Model: ${MODEL_PATH}"
-echo "  Train data: ${TRAIN_DATA}"
-echo "  Val data: ${VAL_DATA}"
+echo "  GPUs per node: ${NPROC_PER_NODE}, total GPUs: $((WORLD_SIZE * NPROC_PER_NODE))"
+echo "------------------------------------------------------------"
+echo "  Project directory: ${PROJECT_DIR}"
+echo "  Config file: ${CONFIG_PATH}"
+echo "  Model path: ${MODEL_PATH}"
+echo "  Training data: ${TRAIN_DATA}"
+echo "  Validation data: ${VAL_DATA}"
+echo "  Experiment name: ${EXPERIMENT_NAME}"
+echo "  Log file: ${LOG_FILE}"
+echo "------------------------------------------------------------"
 echo "  Prompt template: ${FORMAT_PROMPT}"
 echo "  Reward function: ${REWARD_FUNCTION}"
-echo "  Checkpoint path: ${SAVE_CHECKPOINT_PATH}"
 echo "============================================================"
 
 # =============================================================================
-# Ray Cluster Management
+# Ray cluster management helpers
 # =============================================================================
 cleanup_ray() {
+    echo "[INFO] Cleaning up Ray processes..."
     ray stop --force 2>/dev/null || true
     sleep 3
 }
@@ -92,30 +111,33 @@ cleanup_ray() {
 wait_for_head() {
     local max_attempts=60
     local attempt=0
+    echo "[INFO] Waiting for Head node at ${MASTER_ADDR}:${MASTER_PORT}..."
     while [ $attempt -lt $max_attempts ]; do
         if ray status --address="${MASTER_ADDR}:${MASTER_PORT}" &>/dev/null; then
+            echo "[INFO] Head node is ready!"
             return 0
         fi
         attempt=$((attempt + 1))
-        echo "Waiting for head node... ($attempt/$max_attempts)"
+        echo "  Waiting for Head node... ($attempt/$max_attempts)"
         sleep 5
     done
-    echo "Timeout waiting for head node"
+    echo "[ERROR] Timed out waiting for Head node"
     return 1
 }
 
 wait_for_workers() {
     local expected_nodes=$WORLD_SIZE
-    local max_attempts=60
+    local max_attempts=120
     local attempt=0
 
+    echo "[INFO] Waiting for $expected_nodes nodes to connect..."
     while [ $attempt -lt $max_attempts ]; do
         local connected_nodes
         connected_nodes=$(ray status 2>/dev/null | grep -c "node_" || echo "0")
-        echo "Connected nodes: $connected_nodes / $expected_nodes (attempt $attempt/$max_attempts)"
+        echo "  Connected nodes: $connected_nodes / $expected_nodes (attempt $attempt/$max_attempts)"
 
         if [ "$connected_nodes" -ge "$expected_nodes" ]; then
-            echo "All nodes connected!"
+            echo "[INFO] All nodes are connected!"
             ray status
             return 0
         fi
@@ -124,23 +146,33 @@ wait_for_workers() {
         sleep 10
     done
 
-    echo "Error: not all nodes connected"
+    echo "[ERROR] Failed to wait for all nodes to connect"
     ray status
     return 1
 }
 
 # =============================================================================
-# Switch to project directory (format_prompt uses relative paths)
+# Switch to the project directory
 # =============================================================================
 cd "$PROJECT_DIR"
+
+# =============================================================================
+# Prepare output directories
+# =============================================================================
+mkdir -p "${SAVE_CHECKPOINT_PATH}"
+export TENSORBOARD_DIR="${SAVE_CHECKPOINT_PATH}/tensorboard_log"
+mkdir -p "${TENSORBOARD_DIR}"
 
 # =============================================================================
 # Execute based on node role
 # =============================================================================
 if [ "$RANK" == "0" ]; then
+    # =========================================================================
     # Head node
+    # =========================================================================
     cleanup_ray
 
+    echo "[HEAD] Starting Ray Head node..."
     ray start --head \
         --port=${MASTER_PORT} \
         --dashboard-host=0.0.0.0 \
@@ -148,15 +180,18 @@ if [ "$RANK" == "0" ]; then
         --num-gpus=${NPROC_PER_NODE} \
         --disable-usage-stats
 
+    # Wait for workers in multi-node mode
     if [ "$WORLD_SIZE" -gt 1 ]; then
-        echo "Waiting for worker nodes..."
+        echo "[HEAD] Waiting for Worker nodes to connect..."
         if ! wait_for_workers; then
-            echo "Cluster not ready, exiting"
+            echo "[ERROR] Cluster is not ready, exiting"
+            cleanup_ray
             exit 1
         fi
     fi
 
-    # Submit training job
+    # Launch training
+    echo "[HEAD] Launching Visual RL training..."
     python3 -m verl.trainer.main \
         config=${CONFIG_PATH} \
         data.train_files=${TRAIN_DATA} \
@@ -168,21 +203,31 @@ if [ "$RANK" == "0" ]; then
         worker.reward.reward_function=${REWARD_FUNCTION} \
         algorithm.disable_kl=True \
         trainer.experiment_name=${EXPERIMENT_NAME} \
+        trainer.save_checkpoint_path=${SAVE_CHECKPOINT_PATH} \
         trainer.n_gpus_per_node=${NPROC_PER_NODE} \
         trainer.nnodes=${WORLD_SIZE} \
-        trainer.save_checkpoint_path=${SAVE_CHECKPOINT_PATH} \
-        trainer.find_last_checkpoint=${FIND_LAST_CHECKPOINT} \
+        trainer.save_freq=25 \
+        trainer.save_limit=5 \
         2>&1 | tee -a "$LOG_FILE"
 
-    echo "Training complete!"
+    echo "[HEAD] Training completed!"
     cleanup_ray
 
 else
+    # =========================================================================
     # Worker node
+    # =========================================================================
     cleanup_ray
-    wait_for_head
+
+    echo "[WORKER ${RANK}] Waiting for Head node..."
+    if ! wait_for_head; then
+        echo "[ERROR] Failed to connect to Head node, exiting"
+        exit 1
+    fi
+
     sleep 20
 
+    echo "[WORKER ${RANK}] Connecting to Ray cluster..."
     ray start \
         --address="${MASTER_ADDR}:${MASTER_PORT}" \
         --num-gpus=${NPROC_PER_NODE} \
@@ -191,6 +236,6 @@ else
 
     ray status --address="${MASTER_ADDR}:${MASTER_PORT}"
 
-    echo "Worker node standing by..."
+    echo "[WORKER ${RANK}] Connected and waiting for tasks..."
     sleep inf
 fi

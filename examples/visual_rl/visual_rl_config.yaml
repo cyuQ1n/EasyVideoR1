@@ -1,0 +1,204 @@
+# =============================================================================
+# Visual RL Training Configuration
+# RL configuration for mixed image-video tasks
+# =============================================================================
+#
+# Supported task types:
+#   - Multiple Choice, Numerical, Math, OCR
+#   - Open-ended, Video QA, Video Description
+#   - Code (Python/SVG/HTML)
+#   - Boolean, Binary Classification, LLaVA Critic
+#   - Spatial/Temporal/Spatial-Temporal Grounding
+#
+# Expected data format:
+# {
+#     "problem": "question text...",
+#     "answer": "ground-truth answer",
+#     "problem_type": "task type",
+#     "data_type": "image" | "video" | "text",
+#     "images": ["path/to/image.jpg"] or [],
+#     "videos": ["path/to/video.mp4"] or [],
+#     "options": ["A. ...", "B. ..."] (multiple-choice only),
+#     "has_offline_trajectory": false,  # Mix-policy only
+#     "offline_output": ""               # Mix-policy only
+# }
+#
+# =============================================================================
+
+data:
+  # ===== Data paths =====
+  train_files: /path/to/your/train_data.jsonl
+  val_files: /path/to/your/val_data.json
+
+  # ===== Data field mapping =====
+  prompt_key: problem              # Question field
+  answer_key: answer               # Answer field
+  image_key: images                # Image field
+  video_key: videos                # Video field
+
+  # ===== Data directories =====
+  image_dir: /path/to/your/image_dir  # Root image directory for relative paths
+
+  # ===== Video processing =====
+  video_fps: 2.0                   # Video sampling FPS
+  video_max_frames: 128            # Maximum number of frames
+  use_preprocessed_videos: false   # Whether to use preprocessed videos
+
+  # ===== Resolution control =====
+  min_pixels: 262144                 # Minimum resolution (512x512)
+  image_max_pixels: 1048576        # Maximum image resolution (1024x1024)
+  video_max_pixels: 262144         # Maximum video resolution (512x512)
+
+  # ===== Length limits =====
+  max_prompt_length: 16384         # Maximum prompt length
+  max_response_length: 16384       # Maximum response length
+  filter_overlong_prompts: true    # Filter overlong prompts
+
+  # ===== Batch configuration =====
+  rollout_batch_size: 512          # Rollout batch size
+  mini_rollout_batch_size: null    # Mini batch size (null = auto)
+  val_batch_size: 512              # Validation batch size
+
+  # ===== Misc =====
+  format_prompt: examples/visual_rl/format_prompt/unified.jinja  # Unified prompt template
+  override_chat_template: null     # Override chat template (null = disabled)
+  shuffle: false                   # Whether to shuffle data
+  seed: 1                          # Random seed
+
+# =============================================================================
+# RL algorithm configuration
+# =============================================================================
+algorithm:
+  adv_estimator: grpo              # Advantage estimator: grpo | gae | reinforce++ | remax | rloo
+  disable_kl: true                 # Whether to disable KL divergence computation
+  use_kl_loss: true                # Whether to use KL loss
+  kl_penalty: low_var_kl           # KL penalty type: low_var_kl | kl | abs | mse | full
+  kl_coef: 0.01                    # KL coefficient
+
+  # ===== Online filtering (DAPO) =====
+  online_filtering: false          # Whether to enable online sample filtering
+  filter_key: overall              # Metric used for filtering
+  filter_low: 0.01                 # Lower filtering bound
+  filter_high: 0.99                # Upper filtering bound
+
+# =============================================================================
+# Worker configuration
+# =============================================================================
+worker:
+  # =============================
+  # Actor (policy model) configuration
+  # =============================
+  actor:
+    global_batch_size: 256                      # Global batch size
+    micro_batch_size_per_device_for_update: 1   # Per-device update micro batch size
+    micro_batch_size_per_device_for_experience: 1  # Per-device experience micro batch size
+    max_grad_norm: 1.0                          # Gradient clipping threshold
+
+    # ===== Memory optimization =====
+    padding_free: true                          # Remove padding waste
+    dynamic_batching: true                      # Enable dynamic batching
+    ulysses_size: 1                             # Ulysses sequence parallelism degree
+
+    # ===== Model configuration =====
+    model:
+      model_path: Qwen/Qwen3-VL-8B-Instruct     # Model path
+      enable_gradient_checkpointing: true       # Gradient checkpointing to save memory
+      trust_remote_code: false                  # Whether to trust remote code
+      freeze_vision_tower: false                # Whether to freeze the vision encoder
+
+    # ===== Optimizer configuration =====
+    optim:
+      lr: 1.0e-6                                # Learning rate (VLMs usually need a small LR)
+      weight_decay: 0.01                        # Weight decay
+      strategy: adamw                           # Optimizer type
+      lr_warmup_ratio: 0.0                      # Warmup ratio (0 = disabled)
+
+    # ===== FSDP configuration =====
+    fsdp:
+      enable_full_shard: true                   # Full sharding (ZeRO-3)
+      enable_cpu_offload: false                 # CPU offload (slower but saves memory)
+      enable_rank0_init: true                   # Rank-0 initialization
+
+    # ===== Offload configuration =====
+    offload:
+      offload_params: true                     # Parameter offload
+      offload_optimizer: true                  # Optimizer offload
+
+  # =============================
+  # Rollout (generation) configuration
+  # =============================
+  rollout:
+    n: 8                                        # Number of samples per prompt
+    temperature: 1.0                            # Sampling temperature for exploration
+    top_p: 1.0                                  # Nucleus sampling parameter
+
+    # ===== vLLM configuration =====
+    limit_images: 0                             # Maximum number of images (0 = unlimited)
+    gpu_memory_utilization: 0.8                 # Target GPU memory utilization
+    enforce_eager: false                        # Force eager mode (useful for debugging)
+    enable_chunked_prefill: true               # Chunked prefill for long sequences
+    tensor_parallel_size: 4                     # Tensor parallelism degree
+    max_num_batched_tokens: 32768               # Maximum batched token count
+    disable_tqdm: false                          # Disable progress bars
+
+    # ===== Mix-policy configuration =====
+    enable_mix_policy: false                    # Whether to enable mix-policy training
+
+    # ===== Validation-time overrides =====
+    val_override_config:
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      repetition_penalty: 1.0
+      presence_penalty: 1.5
+      n: 1                                      # Generate only one sample during validation
+
+  # =============================
+  # Reference model configuration
+  # =============================
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: true
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+
+  # =============================
+  # Reward function configuration
+  # =============================
+  reward:
+    reward_function: examples/visual_rl/reward_function/unified.py:compute_score
+
+# =============================================================================
+# Trainer configuration
+# =============================================================================
+trainer:
+  total_epochs: 10                              # Number of training epochs
+  max_steps: null                              # Maximum number of steps (null = epoch-based)
+
+  # ===== Project metadata =====
+  project_name: visual_rl                      # Project name
+  experiment_name: visual_rl_qwen3vl8b   # Experiment name
+
+  # ===== Logging =====
+  logger: ["file", "wandb"]                    # Logger types: file, wandb, tensorboard
+
+  # ===== Distributed setup =====
+  nnodes: 1                                    # Number of nodes
+  n_gpus_per_node: 8                           # GPUs per node
+
+  # ===== Validation =====
+  max_try_make_batch: 20                       # Maximum attempts to construct a batch
+  val_freq: 5                                  # Validation frequency (every N steps)
+  val_before_train: true                       # Run validation before training
+  val_only: false                              # Validation-only mode
+  val_generations_to_log: 100000000            # Number of generations to log
+
+  # ===== Checkpointing =====
+  save_freq: 10                                # Checkpoint save frequency (every N steps)
+  save_limit: 5                                # Keep the most recent N checkpoints
+  save_model_only: false                       # Save only model weights without optimizer state
+  save_checkpoint_path: null                   # Checkpoint save path (null = auto)
+  load_checkpoint_path: null                   # Checkpoint load path
+  find_last_checkpoint: true                   # Auto-resume from the latest checkpoint

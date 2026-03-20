@@ -1,10 +1,10 @@
 {#- =========================================================
    Video RL Prompt Template
-   对齐 verl/utils/prompt_template.py 的风格
-   将 <think> 替换为 <thought>
+   Aligned with the style of verl/utils/prompt_template.py
+   Replace <think> with <thought>
 
-   注意: 不要在模板中添加 "User:" 或 "Assistant:" 标记，
-   因为 apply_chat_template 会自动添加 <|im_start|>user 等标记
+   Note: do not add "User:" or "Assistant:" markers to the template,
+   because apply_chat_template will automatically add tags such as <|im_start|>user.
    ========================================================= -#}
 {%- if problem is defined -%}
 {%- set question = problem -%}
@@ -19,19 +19,19 @@
 {%- set ptype = "open-ended" -%}
 {%- endif -%}
 {%- set opts = options if options is defined and options is iterable and options | length > 0 else [] -%}
-{#- ============ 构建问题文本（multiple choice 追加选项） ============ -#}
+{#- ============ Build the question text (append options for multiple choice) ============ -#}
 {%- if ptype == "multiple choice" and opts | length > 0 -%}
 {%- set full_question = question | trim ~ "\nOptions:\n" ~ opts | join("\n") -%}
 {%- else -%}
 {%- set full_question = question | trim -%}
 {%- endif -%}
-{#- ============ QUESTION_TEMPLATE 主体 ============ -#}
+{#- ============ QUESTION_TEMPLATE body ============ -#}
 {{ full_question }}
 Please answer this question based on the visual content.
 Provide your thinking process between the <thought> and </thought> tags, and then give your final answer between the <answer> and </answer> tags.
 At the end, you must output the final answer in the format:
 <answer><your_answer_here></answer>
-{#- ============ TYPE_TEMPLATE 尾部（按 problem_type 路由） ============ -#}
+{#- ============ TYPE_TEMPLATE tail section (routed by problem_type) ============ -#}
 {%- if ptype == "multiple choice" %}
 Please provide only the single option letter (e.g., A, B, C, D, etc.) within the <answer>...</answer> tags.
 Example:
