@@ -390,9 +390,6 @@ class RLHFDataset(Dataset):
             prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             videos = example.pop(self.video_key)
 
-            # 保存原始视频路径（用于 fallback）
-            original_video_paths = videos if isinstance(videos, list) else [videos]
-
             # 优先使用预处理的视频文件
             use_preprocessed_path = False
             preprocessed_video_path = None
@@ -511,13 +508,11 @@ class RLHFDataset(Dataset):
                 example["multi_modal_data"] = {
                     "preprocessed_video_path": preprocessed_video_path,
                 }
-            elif processed_video_frames is not None and len(processed_video_frames) > 0:
-                # 原始模式：存储 PIL 图像列表
-                multi_modal_data_content = {"video": processed_video_frames}
-                if video_metadatas is not None:
-                    multi_modal_data_content["video_metadatas"] = video_metadatas
-                example["multi_modal_data"] = multi_modal_data_content
             else:
+                # Fallback path: avoid serializing processed frame payloads through DataProto.
+                # We still process videos locally here to obtain prompt-side tokenizer inputs,
+                # but only keep the normalized video paths in the batch and let worker-side
+                # rollout / actor code re-materialize frames locally.
                 example["multi_modal_data"] = {"videos": videos}
         else:
             # 纯文本样本（没有图片和视频）
