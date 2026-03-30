@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import math
 import os
 from collections import defaultdict
@@ -30,6 +31,11 @@ from transformers import PreTrainedTokenizer, ProcessorMixin
 
 from . import torch_functional as VF
 from .prompt_template import build_prompt
+
+try:
+    _FETCH_VIDEO_PARAM_NAMES = frozenset(inspect.signature(fetch_video).parameters)
+except (TypeError, ValueError):
+    _FETCH_VIDEO_PARAM_NAMES = frozenset()
 
 
 def collate_fn(features: list[dict[str, Any]]) -> dict[str, Any]:
@@ -78,14 +84,44 @@ def process_image(
     return image
 
 
+def _build_fallback_video_metadata(video_data: Union[torch.Tensor, list[ImageObject]], sample_fps: float) -> dict[str, Any]:
+    if isinstance(video_data, torch.Tensor):
+        total_num_frames = int(video_data.shape[0])
+        height = int(video_data.shape[-2]) if video_data.ndim >= 3 else None
+        width = int(video_data.shape[-1]) if video_data.ndim >= 3 else None
+    else:
+        total_num_frames = len(video_data)
+        height = width = None
+        if total_num_frames > 0:
+            first_frame = video_data[0]
+            if isinstance(first_frame, ImageObject):
+                width, height = first_frame.size
+            elif isinstance(first_frame, torch.Tensor) and first_frame.ndim >= 2:
+                height = int(first_frame.shape[-2])
+                width = int(first_frame.shape[-1])
+
+    metadata = {
+        "fps": float(sample_fps),
+        "frames_indices": list(range(total_num_frames)),
+        "total_num_frames": total_num_frames,
+    }
+    if sample_fps > 0:
+        metadata["duration"] = total_num_frames / sample_fps
+    if width is not None and height is not None:
+        metadata["width"] = width
+        metadata["height"] = height
+    return metadata
+
+
 def process_video(
     video: str,
     min_pixels: int = 4 * 32 * 32,
     max_pixels: int = 64 * 32 * 32,
     max_frames: int = 128,
     video_fps: float = 2.0,
+    total_pixels: Optional[int] = None,
     return_fps: bool = False,
-) -> Union[list[ImageObject], tuple[list[ImageObject], list[float]]]:
+) -> Any:
     vision_info = {
         "video": video,
         "min_pixels": min_pixels,
@@ -93,12 +129,35 @@ def process_video(
         "max_frames": max_frames,
         "fps": video_fps,
     }
-    return fetch_video(
-        vision_info,
-        image_patch_size=16,
-        return_video_sample_fps=return_fps,
-        return_video_metadata=return_fps,
-    )
+    if total_pixels is not None:
+        vision_info["total_pixels"] = total_pixels
+
+    fetch_kwargs = {}
+    # Qwen3-VL video processor reshapes frames with 16x16 patches.
+    # Ensure offline and online preprocessing resize to a 16-aligned grid.
+    if "image_patch_size" in _FETCH_VIDEO_PARAM_NAMES:
+        fetch_kwargs["image_patch_size"] = 16
+    elif "image_factor" in _FETCH_VIDEO_PARAM_NAMES:
+        fetch_kwargs["image_factor"] = 16
+    if return_fps and "return_video_sample_fps" in _FETCH_VIDEO_PARAM_NAMES:
+        fetch_kwargs["return_video_sample_fps"] = True
+    if return_fps and "return_video_metadata" in _FETCH_VIDEO_PARAM_NAMES:
+        fetch_kwargs["return_video_metadata"] = True
+
+    result = fetch_video(vision_info, **fetch_kwargs)
+    if not return_fps:
+        return result
+
+    if isinstance(result, tuple) and len(result) == 2:
+        video_data, sample_fps = result
+    else:
+        video_data, sample_fps = result, video_fps
+
+    sample_fps = float(sample_fps)
+    if isinstance(video_data, tuple) and len(video_data) == 2:
+        return video_data, sample_fps
+
+    return (video_data, _build_fallback_video_metadata(video_data, sample_fps)), sample_fps
 
 
 class RLHFDataset(Dataset):
@@ -125,6 +184,7 @@ class RLHFDataset(Dataset):
         image_max_pixels: Optional[int] = None,
         video_min_pixels: Optional[int] = None,
         video_max_pixels: Optional[int] = None,
+        video_total_pixels: Optional[int] = None,
         filter_overlong_prompts: bool = True,
         filter_overlong_prompts_workers: int = 16,
         use_preprocessed_videos: bool = True,
@@ -145,6 +205,7 @@ class RLHFDataset(Dataset):
         self.image_max_pixels = image_max_pixels
         self.video_min_pixels = video_min_pixels
         self.video_max_pixels = video_max_pixels
+        self.video_total_pixels = video_total_pixels
         self.use_preprocessed_videos = use_preprocessed_videos
         self.preprocessed_video_dir = preprocessed_video_dir
 
@@ -306,6 +367,7 @@ class RLHFDataset(Dataset):
                     max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                     max_frames=self.video_max_frames,
                     video_fps=self.video_fps,
+                    total_pixels=self.video_total_pixels,
                     return_fps=True,
                 )
                 if isinstance(result, tuple) and len(result) == 2:
@@ -428,6 +490,7 @@ class RLHFDataset(Dataset):
                             max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                             max_frames=self.video_max_frames,
                             video_fps=self.video_fps,
+                            total_pixels=self.video_total_pixels,
                             return_fps=True,
                         )
                         processed_videos.append(processed_video)
@@ -448,6 +511,7 @@ class RLHFDataset(Dataset):
                         max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
                         max_frames=self.video_max_frames,
                         video_fps=self.video_fps,
+                        total_pixels=self.video_total_pixels,
                         return_fps=True,
                     )
                     processed_videos.append(processed_video)

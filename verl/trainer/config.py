@@ -58,18 +58,27 @@ class DataConfig:
     image_max_pixels: Optional[int] = None
     video_min_pixels: Optional[int] = None
     video_max_pixels: Optional[int] = None
+    video_total_pixels: Optional[int] = None
+    val_video_fps: Optional[float] = None
+    val_video_max_frames: Optional[int] = None
+    val_video_min_pixels: Optional[int] = None
+    val_video_max_pixels: Optional[int] = None
+    val_video_total_pixels: Optional[int] = None
     filter_overlong_prompts: bool = True
     filter_overlong_prompts_workers: int = 16
     use_preprocessed_videos: bool = True
     """whether to use preprocessed video files (.pt) if available"""
     preprocessed_video_dir: Optional[str] = None
-    """directory containing preprocessed video files (.pt)"""
+    """directory containing training preprocessed video files (.pt)"""
+    val_preprocessed_video_dir: Optional[str] = None
+    """directory containing validation preprocessed video files (.pt); defaults to preprocessed_video_dir"""
 
     def post_init(self):
         self.image_dir = get_abs_path(self.image_dir, prompt="Image directory")
         self.format_prompt = get_abs_path(self.format_prompt, prompt="Format prompt file")
         self.override_chat_template = get_abs_path(self.override_chat_template, prompt="Chat template file")
         self.preprocessed_video_dir = get_abs_path(self.preprocessed_video_dir, prompt="Preprocessed video directory")
+        self.val_preprocessed_video_dir = get_abs_path(self.val_preprocessed_video_dir, prompt="Validation preprocessed video directory")
         if self.image_min_pixels is None:
             self.image_min_pixels = self.min_pixels
         if self.image_max_pixels is None:
@@ -78,6 +87,18 @@ class DataConfig:
             self.video_min_pixels = self.min_pixels
         if self.video_max_pixels is None:
             self.video_max_pixels = self.max_pixels
+        if self.val_video_fps is None:
+            self.val_video_fps = self.video_fps
+        if self.val_video_max_frames is None:
+            self.val_video_max_frames = self.video_max_frames
+        if self.val_video_min_pixels is None:
+            self.val_video_min_pixels = self.video_min_pixels
+        if self.val_video_max_pixels is None:
+            self.val_video_max_pixels = self.video_max_pixels
+        if self.val_video_total_pixels is None:
+            self.val_video_total_pixels = self.video_total_pixels
+        if self.val_preprocessed_video_dir is None:
+            self.val_preprocessed_video_dir = self.preprocessed_video_dir
 
 
 @dataclass

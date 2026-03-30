@@ -472,6 +472,7 @@ class FSDPWorker(Worker):
             image_max_pixels = data.meta_info["image_max_pixels"]
             video_min_pixels = data.meta_info["video_min_pixels"]
             video_max_pixels = data.meta_info["video_max_pixels"]
+            video_total_pixels = data.meta_info.get("video_total_pixels")
             video_fps = data.meta_info["video_fps"]
             video_max_frames = data.meta_info["video_max_frames"]
 
@@ -506,6 +507,7 @@ class FSDPWorker(Worker):
                                 max_pixels=video_max_pixels,
                                 max_frames=video_max_frames,
                                 video_fps=video_fps,
+                                total_pixels=video_total_pixels,
                                 return_fps=True,
                             )
                             if isinstance(result, tuple) and len(result) == 2:

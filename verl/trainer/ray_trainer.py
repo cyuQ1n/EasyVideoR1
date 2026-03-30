@@ -413,10 +413,11 @@ class RayPPOTrainer:
             test_gen_batch.meta_info = self.config.worker.rollout.val_override_config
             test_gen_batch.meta_info["image_min_pixels"] = self.config.data.image_min_pixels
             test_gen_batch.meta_info["image_max_pixels"] = self.config.data.image_max_pixels
-            test_gen_batch.meta_info["video_min_pixels"] = self.config.data.video_min_pixels
-            test_gen_batch.meta_info["video_max_pixels"] = self.config.data.video_max_pixels
-            test_gen_batch.meta_info["video_fps"] = self.config.data.video_fps
-            test_gen_batch.meta_info["video_max_frames"] = self.config.data.video_max_frames
+            test_gen_batch.meta_info["video_min_pixels"] = self.config.data.val_video_min_pixels
+            test_gen_batch.meta_info["video_max_pixels"] = self.config.data.val_video_max_pixels
+            test_gen_batch.meta_info["video_total_pixels"] = self.config.data.val_video_total_pixels
+            test_gen_batch.meta_info["video_fps"] = self.config.data.val_video_fps
+            test_gen_batch.meta_info["video_max_frames"] = self.config.data.val_video_max_frames
 
             test_gen_batch, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_ref_wg.world_size)
             test_output_gen_batch = self.actor_rollout_ref_wg.generate_sequences(test_gen_batch)
@@ -583,6 +584,7 @@ class RayPPOTrainer:
                 "image_max_pixels": self.config.data.image_max_pixels,
                 "video_min_pixels": self.config.data.video_min_pixels,
                 "video_max_pixels": self.config.data.video_max_pixels,
+                "video_total_pixels": self.config.data.video_total_pixels,
                 "video_fps": self.config.data.video_fps,
                 "video_max_frames": self.config.data.video_max_frames,
             }
@@ -607,6 +609,7 @@ class RayPPOTrainer:
                     "image_max_pixels",
                     "video_min_pixels",
                     "video_max_pixels",
+                    "video_total_pixels",
                     "video_fps",
                     "video_max_frames",
                 ],
