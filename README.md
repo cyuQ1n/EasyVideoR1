@@ -163,3 +163,6 @@ If you use this project, please cite EasyR1 and veRL:
 ## License
 
 This project follows the same license as [EasyR1](https://github.com/hiyouga/EasyR1).
+
+## ☎️ We're Hiring!
+We're hiring multimodal research scientists and interns at JD Explore Academy! If you have top-tier publications and are passionate about video understanding and VLMs, please send your resume to: siqingyi.phoebus@jd.com. We'd love to hear from you!
