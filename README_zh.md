@@ -163,3 +163,6 @@ python3 scripts/model_merger.py --local_dir checkpoints/your_exp/global_step_xxx
 ## 许可证
 
 本项目遵循与 [EasyR1](https://github.com/hiyouga/EasyR1) 相同的许可证。
+
+## ☎️ 我们正在招聘！
+我们（京东探索研究院多模态理解研究部）正在招聘多模态大模型研究员和实习生！如果你有顶级会议/期刊论文发表，并对视频理解和视觉语言模型（VLMs）充满热情，请将简历发送至：siqingyi.phoebus@jd.com。期待你的加入！
