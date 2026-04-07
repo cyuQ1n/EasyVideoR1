@@ -30,6 +30,12 @@ from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer, ProcessorMixin
 
 from . import torch_functional as VF
+from .multimodal_contract import (
+    VIDEO_SOURCE_MODE_PREPROCESSED_ONLY,
+    VIDEO_SOURCE_MODE_REALTIME_ONLY,
+    build_video_multimodal_contract,
+    normalize_video_source_mode,
+)
 from .prompt_template import build_prompt
 
 try:
@@ -188,6 +194,7 @@ class RLHFDataset(Dataset):
         filter_overlong_prompts: bool = True,
         filter_overlong_prompts_workers: int = 16,
         use_preprocessed_videos: bool = True,
+        video_source_mode: Optional[str] = None,
         preprocessed_video_dir: Optional[str] = None,
     ):
         self.tokenizer = tokenizer
@@ -207,6 +214,10 @@ class RLHFDataset(Dataset):
         self.video_max_pixels = video_max_pixels
         self.video_total_pixels = video_total_pixels
         self.use_preprocessed_videos = use_preprocessed_videos
+        self.video_source_mode = normalize_video_source_mode(
+            video_source_mode,
+            use_preprocessed_videos=use_preprocessed_videos,
+        )
         self.preprocessed_video_dir = preprocessed_video_dir
 
         if "@" in data_path:
@@ -236,6 +247,49 @@ class RLHFDataset(Dataset):
                 desc="Filtering overlong prompts",
                 num_proc=filter_overlong_prompts_workers,
             )
+
+    def _ensure_single_vision_modality(self, has_images: bool, has_videos: bool) -> None:
+        if has_images and has_videos:
+            raise NotImplementedError(
+                "A single sample containing both images and videos is not supported in this training contract yet."
+            )
+
+    def _resolve_preprocessed_video_path(self, example: dict[str, Any], *, pop_value: bool) -> Optional[str]:
+        if pop_value:
+            preprocessed_video_file = example.pop("preprocessed_video", None)
+        else:
+            preprocessed_video_file = example.get("preprocessed_video")
+
+        if not preprocessed_video_file:
+            if self.video_source_mode == VIDEO_SOURCE_MODE_PREPROCESSED_ONLY:
+                problem_id = example.get("problem_id", "unknown")
+                raise FileNotFoundError(
+                    f"video_source_mode=preprocessed_only but sample {problem_id!r} has no preprocessed_video field."
+                )
+            return None
+
+        if self.preprocessed_video_dir is not None:
+            preprocessed_video_path = os.path.join(self.preprocessed_video_dir, preprocessed_video_file)
+        else:
+            preprocessed_video_path = preprocessed_video_file
+
+        if os.path.exists(preprocessed_video_path):
+            return preprocessed_video_path
+
+        if self.video_source_mode == VIDEO_SOURCE_MODE_PREPROCESSED_ONLY:
+            problem_id = example.get("problem_id", "unknown")
+            raise FileNotFoundError(
+                f"video_source_mode=preprocessed_only but artifact is missing for sample {problem_id!r}: "
+                f"{preprocessed_video_path}"
+            )
+
+        return None
+
+    def _should_use_preprocessed_video(self, preprocessed_video_path: Optional[str]) -> bool:
+        return (
+            preprocessed_video_path is not None
+            and self.video_source_mode != VIDEO_SOURCE_MODE_REALTIME_ONLY
+        )
 
     def _build_messages(self, example: dict[str, Any]) -> list[dict[str, Any]]:
         prompt_str: str = example[self.prompt_key]
@@ -270,6 +324,7 @@ class RLHFDataset(Dataset):
             and hasattr(videos_data, "__len__")
             and len(videos_data) > 0
         )
+        self._ensure_single_vision_modality(has_images, has_videos)
 
         if has_images:
             # https://huggingface.co/docs/transformers/en/tasks/image_text_to_text
@@ -330,28 +385,21 @@ class RLHFDataset(Dataset):
         elif has_videos:
             prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
 
-            # 优先使用预处理的视频文件（与 __getitem__ 逻辑对齐）
-            if self.use_preprocessed_videos and "preprocessed_video" in example and example["preprocessed_video"]:
-                preprocessed_video_file = example["preprocessed_video"]
-                if self.preprocessed_video_dir is not None:
-                    preprocessed_video_path = os.path.join(self.preprocessed_video_dir, preprocessed_video_file)
-                else:
-                    preprocessed_video_path = preprocessed_video_file
-
-                if os.path.exists(preprocessed_video_path):
-                    preprocessed_data = torch.load(preprocessed_video_path, map_location="cpu", weights_only=False)
-                    processed_videos = [preprocessed_data["frames"]]
-                    video_metadatas = [preprocessed_data["metadata"]]
-                    model_inputs = self.processor(
-                        videos=processed_videos,
-                        text=[prompt],
-                        add_special_tokens=False,
-                        return_tensors="pt",
-                        video_metadata=video_metadatas,
-                        do_resize=False,
-                        do_sample_frames=False,
-                    )
-                    return model_inputs["input_ids"].size(-1) <= self.max_prompt_length
+            preprocessed_video_path = self._resolve_preprocessed_video_path(example, pop_value=False)
+            if self._should_use_preprocessed_video(preprocessed_video_path):
+                preprocessed_data = torch.load(preprocessed_video_path, map_location="cpu", weights_only=False)
+                processed_videos = [preprocessed_data["frames"]]
+                video_metadatas = [preprocessed_data["metadata"]]
+                model_inputs = self.processor(
+                    videos=processed_videos,
+                    text=[prompt],
+                    add_special_tokens=False,
+                    return_tensors="pt",
+                    video_metadata=video_metadatas,
+                    do_resize=False,
+                    do_sample_frames=False,
+                )
+                return model_inputs["input_ids"].size(-1) <= self.max_prompt_length
 
             # fallback: 实时解码原始视频
             videos = example[self.video_key]
@@ -452,60 +500,20 @@ class RLHFDataset(Dataset):
             prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             videos = example.pop(self.video_key)
 
-            # 优先使用预处理的视频文件
-            use_preprocessed_path = False
-            preprocessed_video_path = None
-            if self.use_preprocessed_videos and "preprocessed_video" in example and example["preprocessed_video"]:
-                preprocessed_video_file = example.pop("preprocessed_video")
-                # 构建完整路径
-                if self.preprocessed_video_dir is not None:
-                    preprocessed_video_path = os.path.join(self.preprocessed_video_dir, preprocessed_video_file)
-                else:
-                    preprocessed_video_path = preprocessed_video_file
-
-                # 加载预处理的视频数据（仅用于 tokenize 确定 token 数量）
-                if os.path.exists(preprocessed_video_path):
-                    preprocessed_data = torch.load(preprocessed_video_path, map_location="cpu", weights_only=False)
-                    processed_videos = [preprocessed_data["frames"]]
-                    video_metadatas = [preprocessed_data["metadata"]]
-                    video_fps_list = [preprocessed_data["sample_fps"]]
-                    video_kwargs = {"do_sample_frames": False}
-                    use_preprocessed_path = True
-                else:
-                    # 降级：预处理文件不存在，使用原始处理逻辑
-                    print(
-                        f"Warning: Preprocessed video file not found: {preprocessed_video_path}, falling back to real-time processing"
-                    )
-                    preprocessed_video_path = None
-                    if self.image_dir is not None and len(videos) != 0 and isinstance(videos[0], str):
-                        videos = [os.path.join(self.image_dir, video) for video in videos]
-                    processed_videos = []
-                    video_fps_list = []
-                    video_metadatas = []
-                    video_kwargs = {"do_sample_frames": False}
-                    for video in videos:
-                        processed_video, video_fps = process_video(
-                            video,
-                            min_pixels=self.video_min_pixels if self.video_min_pixels else 4 * 32 * 32,
-                            max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
-                            max_frames=self.video_max_frames,
-                            video_fps=self.video_fps,
-                            total_pixels=self.video_total_pixels,
-                            return_fps=True,
-                        )
-                        processed_videos.append(processed_video)
-                        video_fps_list.append(video_fps)
+            preprocessed_video_path = self._resolve_preprocessed_video_path(example, pop_value=True)
+            if self._should_use_preprocessed_video(preprocessed_video_path):
+                preprocessed_data = torch.load(preprocessed_video_path, map_location="cpu", weights_only=False)
+                processed_videos = [preprocessed_data["frames"]]
+                video_metadatas = [preprocessed_data["metadata"]]
+                video_kwargs = {"do_sample_frames": False}
             else:
-                # 原始处理逻辑：实时处理视频
                 if self.image_dir is not None and len(videos) != 0 and isinstance(videos[0], str):  # video paths
                     videos = [os.path.join(self.image_dir, video) for video in videos]
 
                 processed_videos = [] if len(videos) != 0 else None  # text-only data
-                video_fps_list = []
                 video_kwargs = {"do_sample_frames": False}  # For Qwen3-VL
                 for video in videos:
-                    # Use video min/max pixels to match training stage
-                    processed_video, video_fps = process_video(
+                    processed_video, _ = process_video(
                         video,
                         min_pixels=self.video_min_pixels if self.video_min_pixels else 4 * 32 * 32,
                         max_pixels=self.video_max_pixels if self.video_max_pixels else 64 * 32 * 32,
@@ -515,7 +523,6 @@ class RLHFDataset(Dataset):
                         return_fps=True,
                     )
                     processed_videos.append(processed_video)
-                    video_fps_list.append(video_fps)
 
             # Handle video_metadata for Qwen3-VL
             if processed_videos is not None and len(processed_videos) > 0:
@@ -566,18 +573,11 @@ class RLHFDataset(Dataset):
             input_ids = model_inputs.pop("input_ids")[0]
             attention_mask = model_inputs.pop("attention_mask")[0]
 
-            # 存储 multi_modal_data
-            # 如果有预处理路径，只存路径字符串（~100B），Worker 端本地加载
-            if use_preprocessed_path and preprocessed_video_path is not None:
-                example["multi_modal_data"] = {
-                    "preprocessed_video_path": preprocessed_video_path,
-                }
-            else:
-                # Fallback path: avoid serializing processed frame payloads through DataProto.
-                # We still process videos locally here to obtain prompt-side tokenizer inputs,
-                # but only keep the normalized video paths in the batch and let worker-side
-                # rollout / actor code re-materialize frames locally.
-                example["multi_modal_data"] = {"videos": videos}
+            example["multi_modal_data"] = build_video_multimodal_contract(
+                video_paths=videos,
+                preprocessed_video_path=preprocessed_video_path,
+                video_source_mode=self.video_source_mode,
+            )
         else:
             # 纯文本样本（没有图片和视频）
             prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
@@ -635,7 +635,6 @@ class RLHFDataset(Dataset):
         example["attention_mask"] = attention_mask
         example["position_ids"] = position_ids
         example["raw_prompt_ids"] = raw_prompt_ids
-        example["raw_prompt"] = prompt  # 保存原始文本prompt（用于vLLM预处理视频）
         example["ground_truth"] = example.pop(self.answer_key)
 
         # Mix-policy: 保留预采集轨迹信息
@@ -646,10 +645,5 @@ class RLHFDataset(Dataset):
         else:
             example["has_offline_trajectory"] = False
             example["offline_output"] = ""
-
-        # 确保所有样本都有preprocessed_video字段（图片样本设为None）
-        # 这是为了满足DataProto的batch一致性检查
-        if "preprocessed_video" not in example:
-            example["preprocessed_video"] = None
 
         return example

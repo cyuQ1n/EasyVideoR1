@@ -19,6 +19,7 @@ import os
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from typing import Optional, Tuple
 
+from ..utils.multimodal_contract import normalize_video_source_mode
 from ..utils.py_functional import get_abs_path
 from ..workers.config import WorkerConfig
 
@@ -67,11 +68,15 @@ class DataConfig:
     filter_overlong_prompts: bool = True
     filter_overlong_prompts_workers: int = 16
     use_preprocessed_videos: bool = True
-    """whether to use preprocessed video files (.pt) if available"""
+    """deprecated compatibility flag; prefer video_source_mode"""
+    video_source_mode: Optional[str] = None
+    """video source policy: prefer_preprocessed, preprocessed_only, realtime_only"""
     preprocessed_video_dir: Optional[str] = None
     """directory containing training preprocessed video files (.pt)"""
     val_preprocessed_video_dir: Optional[str] = None
     """directory containing validation preprocessed video files (.pt); defaults to preprocessed_video_dir"""
+    val_video_source_mode: Optional[str] = None
+    """validation video source policy; defaults to video_source_mode"""
 
     def post_init(self):
         self.image_dir = get_abs_path(self.image_dir, prompt="Image directory")
@@ -99,6 +104,17 @@ class DataConfig:
             self.val_video_total_pixels = self.video_total_pixels
         if self.val_preprocessed_video_dir is None:
             self.val_preprocessed_video_dir = self.preprocessed_video_dir
+        self.video_source_mode = normalize_video_source_mode(
+            self.video_source_mode,
+            use_preprocessed_videos=self.use_preprocessed_videos,
+        )
+        if self.val_video_source_mode is None:
+            self.val_video_source_mode = self.video_source_mode
+        else:
+            self.val_video_source_mode = normalize_video_source_mode(
+                self.val_video_source_mode,
+                use_preprocessed_videos=self.use_preprocessed_videos,
+            )
 
 
 @dataclass

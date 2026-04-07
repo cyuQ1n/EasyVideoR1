@@ -26,7 +26,8 @@ from vllm import LLM, RequestOutput, SamplingParams
 
 from ...protocol import DataProto
 from ...utils import torch_functional as VF
-from ...utils.dataset import process_image, process_video
+from ...utils.dataset import process_image
+from ...utils.multimodal_contract import load_video_tensors_and_metadata
 from ...utils.torch_dtypes import PrecisionType
 from .base import BaseRollout
 from .config import RolloutConfig
@@ -73,15 +74,6 @@ def _process_multi_modal_data(
     video_fps: float,
     video_total_pixels: Optional[int],
 ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
-    """
-    Process multi-modal data and return (mm_data, mm_kwargs).
-    - For images: ({"image": [processed_images]}, None)
-    - For videos: ({"video": [processed_videos]}, {"do_sample_frames": False})
-
-    Handles both:
-    - "video" key: tensors already processed in dataset stage
-    - "videos" key: paths that need processing (backward compatibility)
-    """
     images, videos = [], []
     mm_kwargs = None
 
@@ -89,54 +81,24 @@ def _process_multi_modal_data(
         for image in multi_modal_data["images"]:
             images.append(process_image(image, image_min_pixels, image_max_pixels))
 
-    # Check for "video" key (tensors from dataset) first
-    if "video" in multi_modal_data:
-        # Video tensors already processed in dataset stage
-        video_tensors = multi_modal_data["video"]
-        video_metadatas = multi_modal_data.get("video_metadatas", None)
-
-        # Combine tensors with metadata for vLLM.
-        # Missing metadata here indicates an upstream dataset/preprocessing bug.
-        if video_metadatas is not None and len(video_metadatas) == len(video_tensors):
-            for tensor, metadata in zip(video_tensors, video_metadatas):
-                videos.append((tensor, metadata))
-        else:
+    video_tensors, video_metadatas = load_video_tensors_and_metadata(
+        multi_modal_data,
+        video_min_pixels=video_min_pixels,
+        video_max_pixels=video_max_pixels,
+        video_max_frames=video_max_frames,
+        video_fps=video_fps,
+        video_total_pixels=video_total_pixels,
+    )
+    if video_tensors:
+        if video_metadatas is None or len(video_metadatas) != len(video_tensors):
             metadata_count = 0 if video_metadatas is None else len(video_metadatas)
             raise ValueError(
-                "multi_modal_data['video'] requires video_metadatas with the same length as video tensors. "
+                "Resolved video data is missing valid metadata entries. "
                 f"Got {len(video_tensors)} video tensors and {metadata_count} metadata entries."
             )
-
-        if len(videos) > 0:
-            mm_kwargs = {"do_sample_frames": False, "do_resize": False}
-    elif "videos" in multi_modal_data:
-        # Backward compatibility: process video paths
-        for video in multi_modal_data["videos"]:
-            # process_video returns ((frames, metadata), fps) when return_fps=True
-            # vLLM Qwen3-VL expects each video to be (video_array, metadata) tuple
-            # Use the same min/max pixels as training to ensure consistency
-            processed, _ = process_video(
-                video,
-                min_pixels=video_min_pixels,
-                max_pixels=video_max_pixels,
-                max_frames=video_max_frames,
-                video_fps=video_fps,
-                total_pixels=video_total_pixels,
-                return_fps=True
-            )
-            # Handle the case where processed is (frames, metadata) tuple
-            if isinstance(processed, tuple) and len(processed) == 2:
-                frames, metadata = processed
-                # Keep the (frames, metadata) tuple for vLLM Qwen3-VL
-                videos.append((frames, metadata))
-            else:
-                # Fallback: if no metadata, create a minimal one
-                videos.append((processed, {"fps": 2.0, "frames_indices": list(range(len(processed))), "total_num_frames": len(processed)}))
-
-        if len(videos) > 0:
-            # do_sample_frames=False: we already sampled frames in fetch_video
-            # do_resize=False: we already resized in fetch_video
-            mm_kwargs = {"do_sample_frames": False, "do_resize": False}
+        for tensor, metadata in zip(video_tensors, video_metadatas):
+            videos.append((tensor, metadata))
+        mm_kwargs = {"do_sample_frames": False, "do_resize": False}
 
     if len(images) != 0:
         return {"image": images}, None
@@ -255,9 +217,7 @@ class vLLMRollout(BaseRollout):
 
         non_tensor_batch = prompts.non_tensor_batch
         batch_raw_prompt_ids = non_tensor_batch.pop("raw_prompt_ids")
-        batch_raw_prompt = non_tensor_batch.pop("raw_prompt", None)  # 提取原始文本prompt
         batch_multi_modal_data = non_tensor_batch.pop("multi_modal_data", None)
-        batch_preprocessed_video = non_tensor_batch.pop("preprocessed_video", None)  # 不需要，已在Dataset阶段使用
 
         # Mix-policy: 获取预采集轨迹信息
         batch_has_offline = non_tensor_batch.pop("has_offline_trajectory", None)
@@ -268,63 +228,25 @@ class vLLMRollout(BaseRollout):
 
         if batch_multi_modal_data is not None:
             vllm_inputs = []
-            # 准备迭代器：如果有raw_prompt则同时迭代，否则只迭代ids
-            if batch_raw_prompt is not None:
-                iterator = zip(batch_raw_prompt_ids, batch_raw_prompt, batch_multi_modal_data)
-            else:
-                iterator = zip(batch_raw_prompt_ids, [None] * len(batch_raw_prompt_ids), batch_multi_modal_data)
-
-            for raw_prompt_ids, raw_prompt, multi_modal_data in iterator:
-                if "preprocessed_video_path" in multi_modal_data:
-                    # 本地加载预处理的 .pt 文件
-                    pt_path = multi_modal_data["preprocessed_video_path"]
-                    preprocessed_data = torch.load(pt_path, map_location="cpu", weights_only=False)
-                    video_tensors = [preprocessed_data["frames"]]
-                    video_metadatas_raw = [preprocessed_data["metadata"]]
-
-                    # Use prompt_token_ids (not text prompt) so vLLM takes the
-                    # is_update_applied=False path and expands the video placeholder
-                    # at the token-ID level. Passing a text prompt triggers the HF
-                    # processor path which fails to locate the placeholder after its
-                    # own expansion in Qwen3-VL's _call_hf_processor.
-                    item = {"prompt_token_ids": list(raw_prompt_ids)}
-
-                    # Format for vLLM: list of (tensor, VideoMetadata) tuples
-                    videos = []
-                    for tensor, metadata in zip(video_tensors, video_metadatas_raw):
-                        if isinstance(metadata, dict):
-                            metadata_obj = VideoMetadata(
-                                total_num_frames=metadata.get("total_num_frames", tensor.shape[0] if hasattr(tensor, 'shape') else len(tensor)),
-                                fps=metadata.get("fps"),
-                                frames_indices=metadata.get("frames_indices"),
-                                video_backend=metadata.get("video_backend"),
-                                width=metadata.get("width"),
-                                height=metadata.get("height"),
-                                duration=metadata.get("duration"),
-                            )
-                        else:
-                            metadata_obj = metadata
-                        videos.append((tensor, metadata_obj))
-
-                    item["multi_modal_data"] = {"video": videos}
-                    item["mm_processor_kwargs"] = {"do_sample_frames": False, "do_resize": False}
-                elif "video" in multi_modal_data:
-                    # Video tensors already processed in dataset stage
-                    # Use token IDs so vLLM applies prompt updates itself
-                    item = {"prompt_token_ids": list(raw_prompt_ids)}
-
-                    video_tensors = multi_modal_data["video"]
-                    video_metadatas = multi_modal_data.get("video_metadatas", None)
-
-                    # Format for vLLM: list of (tensor, metadata) tuples for Qwen3-VL
-                    # Convert dict metadata to VideoMetadata object
-                    if video_metadatas is not None and len(video_metadatas) == len(video_tensors):
+            for raw_prompt_ids, multi_modal_data in zip(batch_raw_prompt_ids, batch_multi_modal_data):
+                item = {"prompt_token_ids": list(raw_prompt_ids)}
+                mm_data, mm_kwargs = _process_multi_modal_data(
+                    multi_modal_data,
+                    prompts.meta_info["image_min_pixels"],
+                    prompts.meta_info["image_max_pixels"],
+                    prompts.meta_info["video_min_pixels"],
+                    prompts.meta_info["video_max_pixels"],
+                    prompts.meta_info["video_max_frames"],
+                    prompts.meta_info["video_fps"],
+                    prompts.meta_info.get("video_total_pixels"),
+                )
+                if mm_data is not None:
+                    if "video" in mm_data:
                         videos = []
-                        for tensor, metadata in zip(video_tensors, video_metadatas):
-                            # Convert dict to VideoMetadata if needed
+                        for tensor, metadata in mm_data["video"]:
                             if isinstance(metadata, dict):
                                 metadata_obj = VideoMetadata(
-                                    total_num_frames=metadata.get("total_num_frames", tensor.shape[0] if hasattr(tensor, 'shape') else len(tensor)),
+                                    total_num_frames=metadata.get("total_num_frames", tensor.shape[0] if hasattr(tensor, "shape") else len(tensor)),
                                     fps=metadata.get("fps"),
                                     frames_indices=metadata.get("frames_indices"),
                                     video_backend=metadata.get("video_backend"),
@@ -335,40 +257,11 @@ class vLLMRollout(BaseRollout):
                             else:
                                 metadata_obj = metadata
                             videos.append((tensor, metadata_obj))
+                        item["multi_modal_data"] = {"video": videos}
                     else:
-                        metadata_count = 0 if video_metadatas is None else len(video_metadatas)
-                        raise ValueError(
-                            "Dataset-provided multi_modal_data['video'] is missing valid video_metadatas. "
-                            f"Got {len(video_tensors)} video tensors and {metadata_count} metadata entries."
-                        )
-
-                    item["multi_modal_data"] = {"video": videos}
-                    item["mm_processor_kwargs"] = {"do_sample_frames": False, "do_resize": False}
-                else:
-                    # Backward compatibility: process video paths or images
-                    # 对于多模态数据（图片/视频），使用文本prompt而不是token ids
-                    # 这样vLLM才能找到<image>/<video>占位符位置
-                    if raw_prompt is not None and ("images" in multi_modal_data or "videos" in multi_modal_data):
-                        item = {"prompt": raw_prompt}  # 使用文本prompt（包含<image>/<video>占位符）
-                    else:
-                        item = {"prompt_token_ids": list(raw_prompt_ids)}  # 纯文本或后备方案
-
-                    mm_data, mm_kwargs = _process_multi_modal_data(
-                        multi_modal_data,
-                        prompts.meta_info["image_min_pixels"],
-                        prompts.meta_info["image_max_pixels"],
-                        prompts.meta_info["video_min_pixels"],
-                        prompts.meta_info["video_max_pixels"],
-                        prompts.meta_info["video_max_frames"],
-                        prompts.meta_info["video_fps"],
-                        prompts.meta_info.get("video_total_pixels"),
-                    )
-                    if mm_data is not None:
                         item["multi_modal_data"] = mm_data
-                        # Inject mm_processor_kwargs for video processing (e.g., do_sample_frames)
-                        if mm_kwargs is not None:
-                            item["mm_processor_kwargs"] = mm_kwargs
-
+                    if mm_kwargs is not None:
+                        item["mm_processor_kwargs"] = mm_kwargs
                 vllm_inputs.append(item)
         else:
             vllm_inputs = [{"prompt_token_ids": list(raw_prompt_ids)} for raw_prompt_ids in batch_raw_prompt_ids]

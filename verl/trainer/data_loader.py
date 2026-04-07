@@ -46,6 +46,7 @@ def create_dataloader(config: DataConfig, tokenizer: PreTrainedTokenizer, proces
         filter_overlong_prompts=config.filter_overlong_prompts,
         filter_overlong_prompts_workers=config.filter_overlong_prompts_workers,
         use_preprocessed_videos=config.use_preprocessed_videos,
+        video_source_mode=config.video_source_mode,
         preprocessed_video_dir=config.preprocessed_video_dir,
     )
     # use sampler for better ckpt resume
@@ -92,6 +93,7 @@ def create_dataloader(config: DataConfig, tokenizer: PreTrainedTokenizer, proces
         video_total_pixels=config.val_video_total_pixels,
         filter_overlong_prompts=config.filter_overlong_prompts,
         use_preprocessed_videos=config.use_preprocessed_videos,
+        video_source_mode=config.val_video_source_mode,
         preprocessed_video_dir=config.val_preprocessed_video_dir,
     )
 

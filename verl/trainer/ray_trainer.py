@@ -40,6 +40,7 @@ from ..single_controller.ray.base import create_colocated_worker_cls
 from ..utils import torch_functional as VF
 from ..utils.checkpoint import CHECKPOINT_TRACKER, find_latest_ckpt, remove_obsolete_ckpt
 from ..utils.logger import Tracker
+from ..utils.multimodal_contract import validate_multi_modal_data_contract
 from ..utils.py_functional import convert_dict_to_str, timer, unflatten_dict
 from ..utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from ..workers.fsdp_workers import FSDPWorker
@@ -372,6 +373,22 @@ class RayPPOTrainer:
         else:
             print(f"No dataloader state found at {dataloader_path}, will start from scratch.")
 
+    def _assert_multimodal_contract(self, data: DataProto, stage: str) -> None:
+        if "multi_modal_data" not in data.non_tensor_batch:
+            return
+
+        problem_ids = data.non_tensor_batch.get("problem_id", None)
+        uids = data.non_tensor_batch.get("uid", None)
+        for idx, multi_modal_data in enumerate(data.non_tensor_batch["multi_modal_data"]):
+            try:
+                validate_multi_modal_data_contract(multi_modal_data)
+            except Exception as exc:
+                problem_id = None if problem_ids is None else problem_ids[idx]
+                uid = None if uids is None else uids[idx]
+                raise ValueError(
+                    f"{stage}: invalid multi_modal_data at index={idx}, uid={uid}, problem_id={problem_id}: {exc}"
+                ) from exc
+
     def _maybe_log_val_generations(
         self,
         inputs: list[str],
@@ -407,7 +424,7 @@ class RayPPOTrainer:
             test_batch = DataProto.from_single_dict(batch_dict)
             test_gen_batch = test_batch.pop(
                 batch_keys=["input_ids", "attention_mask", "position_ids"],
-                non_tensor_batch_keys=["raw_prompt_ids", "raw_prompt", "multi_modal_data"],
+                non_tensor_batch_keys=["raw_prompt_ids", "multi_modal_data"],
             )
             repeat_times = self.config.worker.rollout.val_override_config.get("n", 1)
             test_gen_batch.meta_info = self.config.worker.rollout.val_override_config
@@ -419,6 +436,7 @@ class RayPPOTrainer:
             test_gen_batch.meta_info["video_fps"] = self.config.data.val_video_fps
             test_gen_batch.meta_info["video_max_frames"] = self.config.data.val_video_max_frames
 
+            self._assert_multimodal_contract(test_gen_batch, stage="validate")
             test_gen_batch, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_ref_wg.world_size)
             test_output_gen_batch = self.actor_rollout_ref_wg.generate_sequences(test_gen_batch)
             test_output_gen_batch = unpad_dataproto(test_output_gen_batch, pad_size=pad_size * repeat_times)
@@ -599,7 +617,6 @@ class RayPPOTrainer:
                 batch_keys=["input_ids", "attention_mask", "position_ids"],
                 non_tensor_batch_keys=[
                     "raw_prompt_ids",
-                    "raw_prompt",
                     "multi_modal_data",
                     "has_offline_trajectory",  # Mix-policy: 是否有预采集轨迹
                     "offline_output",  # Mix-policy: 预采集的输出文本
@@ -615,6 +632,7 @@ class RayPPOTrainer:
                 ],
             )
 
+            self._assert_multimodal_contract(gen_batch, stage="train")
             batch_has_offline = gen_batch.non_tensor_batch.get("has_offline_trajectory", None)
             batch_offline_output = gen_batch.non_tensor_batch.get("offline_output", None)
 

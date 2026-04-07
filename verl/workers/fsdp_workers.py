@@ -15,6 +15,7 @@
 The main entry point to run the PPO algorithm
 """
 
+from datetime import timedelta
 from typing import Literal, Optional, Union, cast
 
 import numpy as np
@@ -41,7 +42,8 @@ from ..protocol import DataProto
 from ..single_controller.base import Worker
 from ..single_controller.base.decorator import Dispatch, register
 from ..utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
-from ..utils.dataset import process_image, process_video
+from ..utils.dataset import process_image
+from ..utils.multimodal_contract import load_video_tensors_and_metadata
 from ..utils.flops_counter import FlopsCounter
 from ..utils.fsdp_utils import (
     get_fsdp_wrap_policy,
@@ -77,7 +79,7 @@ class FSDPWorker(Worker):
         self._cache = {}
 
         if not dist.is_initialized():
-            dist.init_process_group(backend="nccl")
+            dist.init_process_group(backend="nccl", timeout=timedelta(minutes=10))
 
         # improve numerical stability
         torch.backends.cuda.matmul.allow_tf32 = False
@@ -486,42 +488,18 @@ class FSDPWorker(Worker):
                     images, videos = [], []
                     video_metadatas = None
 
-                    if "preprocessed_video_path" in multi_modal_data:
-                        # 本地加载预处理的 .pt 文件
-                        pt_path = multi_modal_data["preprocessed_video_path"]
-                        preprocessed_data = torch.load(pt_path, map_location="cpu", weights_only=False)
-                        videos = [preprocessed_data["frames"]]
-                        video_metadatas = [preprocessed_data["metadata"]]
-                    elif "images" in multi_modal_data:
+                    if "images" in multi_modal_data:
                         for image in multi_modal_data["images"]:
                             images.append(process_image(image, image_min_pixels, image_max_pixels))
-                    elif "video" in multi_modal_data:
-                        videos = multi_modal_data["video"]
-                        video_metadatas = multi_modal_data.get("video_metadatas", None)
-                    elif "videos" in multi_modal_data:
-                        video_metadatas = []
-                        for video in multi_modal_data["videos"]:
-                            result = process_video(
-                                video,
-                                min_pixels=video_min_pixels,
-                                max_pixels=video_max_pixels,
-                                max_frames=video_max_frames,
-                                video_fps=video_fps,
-                                total_pixels=video_total_pixels,
-                                return_fps=True,
-                            )
-                            if isinstance(result, tuple) and len(result) == 2:
-                                video_data, _ = result
-                                if isinstance(video_data, tuple) and len(video_data) == 2:
-                                    frames, metadata = video_data
-                                    videos.append(frames)
-                                    video_metadatas.append(metadata)
-                                else:
-                                    videos.append(video_data)
-                                    video_metadatas = None
-                            else:
-                                videos.append(result)
-                                video_metadatas = None
+                    else:
+                        videos, video_metadatas = load_video_tensors_and_metadata(
+                            multi_modal_data,
+                            video_min_pixels=video_min_pixels,
+                            video_max_pixels=video_max_pixels,
+                            video_max_frames=video_max_frames,
+                            video_fps=video_fps,
+                            video_total_pixels=video_total_pixels,
+                        )
 
                     # Generate multi_modal_inputs using processor
                     if len(images) != 0:
