@@ -3,7 +3,7 @@
 Multiple Choice Task Reward Function
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mathruler.grader import grade_answer
 from utils import extract_answer, parse_mcq, preprocess_ground_truth
@@ -13,11 +13,11 @@ REWARD_NAME = "multiple_choice"
 REWARD_TYPE = "batch"
 
 
-def accuracy_reward(response: str, ground_truth: str) -> float:
+def accuracy_reward(response: str, ground_truth: str, options: Optional[List[str]] = None) -> float:
     ans = extract_answer(response)
     gt_ans = extract_answer(ground_truth)
 
-    ans_letter = parse_mcq(ans)
+    ans_letter = parse_mcq(ans, options=options)
     gt_letter = parse_mcq(gt_ans)
 
     if ans_letter and gt_letter:
@@ -31,7 +31,8 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
     for inp in reward_inputs:
         response = inp.get("response", "")
         ground_truth = preprocess_ground_truth(inp.get("ground_truth", ""))
-        acc = accuracy_reward(response, ground_truth)
+        options = inp.get("options", None)
+        acc = accuracy_reward(response, ground_truth, options=options)
         scores.append(
             {
                 "overall": acc,

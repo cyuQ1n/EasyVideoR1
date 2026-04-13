@@ -76,6 +76,26 @@ def spatial_temporal_reward(response: str, ground_truth: str) -> float:
         return 0.0
 
 
+def tracking_reward(response: str, ground_truth: str) -> float:
+    """Tracking reward: mean IoU over common frame keys."""
+    try:
+        ans = extract_answer(response)
+        pred = extract_json_from_text(ans)
+        gt_obj = extract_json_from_text(extract_answer(ground_truth))
+
+        if pred is None or gt_obj is None:
+            return 0.0
+
+        pred_boxes = pred.get("boxes", {})
+        gt_boxes = gt_obj.get("boxes", {})
+        if not isinstance(pred_boxes, dict) or not isinstance(gt_boxes, dict):
+            return 0.0
+
+        return mean_iou_over_intersection(pred_boxes, gt_boxes)
+    except Exception:
+        return 0.0
+
+
 def spatial_compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[str, float]]:
     scores = []
     for inp in reward_inputs:
@@ -96,5 +116,13 @@ def spatial_temporal_compute_score(reward_inputs: List[Dict[str, Any]], **kwargs
     scores = []
     for inp in reward_inputs:
         acc = spatial_temporal_reward(inp.get("response", ""), inp.get("ground_truth", ""))
+        scores.append({"overall": acc, "accuracy": acc, "format": 0.0, "length_penalty": 0.0})
+    return scores
+
+
+def tracking_compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[str, float]]:
+    scores = []
+    for inp in reward_inputs:
+        acc = tracking_reward(inp.get("response", ""), inp.get("ground_truth", ""))
         scores.append({"overall": acc, "accuracy": acc, "format": 0.0, "length_penalty": 0.0})
     return scores

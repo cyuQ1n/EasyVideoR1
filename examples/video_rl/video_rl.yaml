@@ -25,6 +25,7 @@ data:
   image_key: images
   video_key: videos
   use_preprocessed_videos: true
+  video_source_mode: prefer_preprocessed  # prefer_preprocessed | preprocessed_only | realtime_only
   preprocessed_video_dir: /path/to/your/preprocessed_videos
   image_dir: null
   

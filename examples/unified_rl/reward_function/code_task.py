@@ -3,9 +3,7 @@
 Code Task Reward Function (Python/HTML/SVG)
 """
 
-import os
 import re
-import sys
 from typing import Any, Dict, List
 
 from utils import extract_answer
@@ -42,27 +40,38 @@ def extract_code_from_markdown(text: str) -> str:
 
 
 def python_code_reward(response: str, ground_truth: str) -> float:
-    """Validate Python code by execution."""
-    try:
-        # Try importing the sandbox helper.
-        try:
-            from examples.reward_function.sandbox import evaluate_code
-        except ImportError:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(os.path.dirname(current_dir))
-            sandbox_dir = os.path.join(parent_dir, "reward_function")
-            if sandbox_dir not in sys.path:
-                sys.path.insert(0, sandbox_dir)
-            from sandbox import evaluate_code
-
-        extracted_code = extract_code_from_markdown(response)
-        if not extracted_code:
-            return 0.0
-
-        score, _ = evaluate_code(extracted_code, ground_truth)
-        return float(score)
-    except Exception:
+    """Validate Python code by checking syntactic correctness and structure similarity."""
+    extracted_code = extract_code_from_markdown(response)
+    if not extracted_code:
         return 0.0
+
+    # Check if the code is syntactically valid Python.
+    try:
+        compile(extracted_code, "<string>", "exec")
+    except SyntaxError:
+        return 0.0
+
+    gt_code = extract_code_from_markdown(ground_truth) or ground_truth.strip()
+    if not gt_code:
+        return 0.5  # Syntactically valid but no ground truth to compare
+
+    # Structural similarity: compare defined function/class names and imports.
+    def extract_identifiers(code: str) -> set:
+        names = set()
+        names.update(re.findall(r"^\s*def\s+(\w+)", code, re.MULTILINE))
+        names.update(re.findall(r"^\s*class\s+(\w+)", code, re.MULTILINE))
+        names.update(re.findall(r"^\s*import\s+(\w+)", code, re.MULTILINE))
+        names.update(re.findall(r"^\s*from\s+(\w+)", code, re.MULTILINE))
+        return names
+
+    pred_ids = extract_identifiers(extracted_code)
+    gt_ids = extract_identifiers(gt_code)
+
+    if not gt_ids:
+        return 0.5
+
+    overlap = len(pred_ids & gt_ids) / len(gt_ids) if gt_ids else 0.0
+    return max(0.0, min(1.0, overlap))
 
 
 def svg_code_reward(response: str, ground_truth: str) -> float:

@@ -91,7 +91,7 @@ def accuracy_reward(response: str, ground_truth: str) -> float:
 def compute_score(
     reward_inputs: List[Dict[str, Any]],
     max_response_length: int = 16384,
-    format_weight: float = 0.1,
+    format_weight: float = 0.0,
     overlong_penalty_factor: float = 0.1,
     thinking_tag: str = "thought",
     **kwargs,

@@ -1,0 +1,125 @@
+{#- =========================================================
+   Unified Long Prompt Template (Mixed Image/Video)
+
+   Design goals:
+   - Keep the long reasoning-first style from the 0331 long setting.
+   - Support both image-text and video-text samples with modality-aware wording.
+   - Preserve raw <image>/<video> placeholders from the dataset question.
+   - Use <answer>...</answer> for the final answer across task types.
+   ========================================================= -#}
+{%- if problem is defined -%}
+{%- set raw_question = problem -%}
+{%- elif content is defined -%}
+{%- set raw_question = content -%}
+{%- else -%}
+{{ 1 / 0 }}
+{%- endif -%}
+{%- set question = raw_question | replace('\\n', '\n') | replace('/n', '\n') | trim -%}
+{%- if problem_type is defined -%}
+{%- set ptype = problem_type | lower | trim -%}
+{%- else -%}
+{%- set ptype = 'open-ended' -%}
+{%- endif -%}
+{%- if data_type is defined -%}
+{%- set dtype = data_type | lower | trim -%}
+{%- else -%}
+{%- set dtype = '' -%}
+{%- endif -%}
+{%- set has_images = images is defined and images is iterable and images is not string and images | length > 0 -%}
+{%- set has_videos = videos is defined and videos is iterable and videos is not string and videos | length > 0 -%}
+{%- set opts = options if options is defined and options is iterable and options is not string and options | length > 0 else [] -%}
+{%- if (dtype == 'video' and has_images) or (has_videos and has_images) -%}
+{%- set visual_source = 'video and the accompanying image' -%}
+{%- set inspect_instruction = 'Examine the video and the accompanying image carefully' -%}
+{%- elif dtype == 'image' or (has_images and not has_videos) -%}
+{%- set visual_source = 'image' -%}
+{%- set inspect_instruction = 'Examine the image carefully' -%}
+{%- elif dtype == 'video' or has_videos -%}
+{%- set visual_source = 'video' -%}
+{%- set inspect_instruction = 'Watch the video carefully' -%}
+{%- else -%}
+{%- set visual_source = 'provided visual input' -%}
+{%- set inspect_instruction = 'Analyze the provided visual input carefully' -%}
+{%- endif -%}
+{%- if ptype == 'multiple choice' and opts | length > 0 -%}
+{%- set full_question = question | trim ~ '\nOptions:\n' ~ opts | join('\n') -%}
+{%- else -%}
+{%- set full_question = question | trim -%}
+{%- endif -%}
+{%- if ptype == 'multiple choice' %}
+{{ inspect_instruction }}, then answer the following multiple-choice question.
+First, briefly explain your reasoning based on what you observed in the {{ visual_source }}.
+Then, provide the letter of the correct option inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == 'numerical' or ptype == 'regression' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the {{ visual_source }}.
+Then, provide your numerical answer inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == 'boolean' or ptype == 'binary classification' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the {{ visual_source }}.
+Then, provide Yes or No inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == 'ocr' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly describe the relevant content in the {{ visual_source }}.
+Then, provide the recognized text inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == 'math' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning and show your work.
+Then, provide your final answer inside <answer> tags. If it is multiple choice, provide the option letter; otherwise provide the numerical value.
+Question: {{ full_question }}
+{%- elif ptype == 'temporal grounding' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning about when the event occurs.
+Then, provide the time span in seconds as a JSON object inside <answer> tags.
+Format: {"time": [start_seconds, end_seconds]}
+Question: {{ full_question }}
+{%- elif ptype == 'spatial-temporal grounding' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning about when and where the target appears.
+Then, provide the time span and bounding boxes as a JSON object inside <answer> tags.
+Format: {"time": [start, end], "boxes": {"second": [x1, y1, x2, y2], ...}}
+You MUST output one bounding box for every integer second within the time span (inclusive).
+Question: {{ full_question }}
+{%- elif ptype == 'spatial grounding' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning about where the target is located.
+Then, provide the bounding box as a JSON object inside <answer> tags.
+Format: {"boxes": [x1, y1, x2, y2]}
+Question: {{ full_question }}
+{%- elif ptype == 'tracking' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning about the target's movement.
+Then, provide the bounding boxes as a JSON object inside <answer> tags.
+Format: {"boxes": {"second": [x1, y1, x2, y2], ...}}
+You MUST output one bounding box for every integer second in the track, up to 32 seconds.
+Question: {{ full_question }}
+{%- elif ptype == 'code' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete Python code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == 'svg-code' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete SVG code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == 'html-code' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete HTML code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == 'llava' %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the {{ visual_source }}.
+Then, provide your choice (Response 1, Response 2, or Tie) inside <answer> tags.
+Question: {{ full_question }}
+{%- else %}
+{{ inspect_instruction }}, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the {{ visual_source }}.
+Then, provide your final answer inside <answer> tags.
+Question: {{ full_question }}
+{%- endif %}

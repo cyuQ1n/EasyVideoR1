@@ -101,6 +101,8 @@ def save_preprocessed_video(
     metadata: dict,
     sample_fps: float,
     output_path: str,
+    source_video: str,
+    preprocess_config: Dict[str, Any],
 ) -> None:
     """
     保存预处理的视频数据为.pt文件
@@ -186,6 +188,15 @@ def process_video_worker(args: Tuple[int, dict, dict, str, Optional[str]]) -> Tu
             metadata=metadata,
             sample_fps=sample_fps,
             output_path=output_path,
+            source_video=video_path,
+            preprocess_config={
+                "min_pixels": params["min_pixels"],
+                "max_pixels": params["max_pixels"],
+                "max_frames": params["max_frames"],
+                "fps": params["fps"],
+                "total_pixels": params.get("total_pixels"),
+                "version": PREPROCESS_VERSION,
+            },
         )
 
         # 更新数据项

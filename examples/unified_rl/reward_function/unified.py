@@ -19,6 +19,7 @@ if _current_dir not in sys.path:
 _utils = importlib.import_module("utils")
 normalize_response = _utils.normalize_response
 preprocess_ground_truth = _utils.preprocess_ground_truth
+format_reward = _utils.format_reward
 
 bool_reward = importlib.import_module("boolean")
 code_reward = importlib.import_module("code_task")
@@ -70,13 +71,22 @@ REWARD_MAPPING = {
     "spatial grounding": "spatial",
     "temporal grounding": "temporal",
     "spatial-temporal grounding": "spatial-temporal",
+    "tracking": "tracking",
 }
 
 
-def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[str, float]]:
+def compute_score(
+    reward_inputs: List[Dict[str, Any]],
+    accuracy_weight: float = 0.90,
+    format_weight: float = 0.10,
+    **kwargs,
+) -> List[Dict[str, float]]:
     """
     Unified reward entry point.
-    Route each sample to the matching reward function by problem_type.
+    Route each sample to the matching reward function by problem_type,
+    then combine with a unified format reward.
+
+    overall = accuracy_weight * accuracy + format_weight * format
     """
     results = []
 
@@ -100,11 +110,28 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
                 score_list = grounding_reward.temporal_compute_score([inp_processed], **kwargs)
             elif reward_target == "spatial-temporal":
                 score_list = grounding_reward.spatial_temporal_compute_score([inp_processed], **kwargs)
+            elif reward_target == "tracking":
+                score_list = grounding_reward.tracking_compute_score([inp_processed], **kwargs)
             else:
                 # Call the target module's compute_score function.
                 score_list = reward_target.compute_score([inp_processed], **kwargs)
 
-            results.append(score_list[0])
+            score = score_list[0]
+            accuracy = score.get("accuracy", 0.0)
+
+            # Compute unified format reward.
+            fmt_score = format_reward(response, problem_type)
+
+            # Combine accuracy and format into overall.
+            overall = accuracy_weight * accuracy + format_weight * fmt_score
+
+            results.append(
+                {
+                    "overall": float(overall),
+                    "accuracy": float(accuracy),
+                    "format": float(fmt_score),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error computing reward for sample {idx}: {e}")
@@ -113,7 +140,6 @@ def compute_score(reward_inputs: List[Dict[str, Any]], **kwargs) -> List[Dict[st
                     "overall": 0.0,
                     "accuracy": 0.0,
                     "format": 0.0,
-                    "length_penalty": 0.0,
                 }
             )
 

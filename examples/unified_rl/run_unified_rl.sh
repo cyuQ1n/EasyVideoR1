@@ -1,13 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# Visual RL Training Script
+# Unified RL Training Script
 # RL training launcher for mixed image-video tasks
 #
 # Usage:
-#   Single node: bash examples/visual_rl/visual_rl_train.sh
+#   Single node: bash examples/unified_rl/run_unified_rl.sh
 #   Multi-node:
-#     Node 0 (Head): WORLD_SIZE=2 RANK=0 MASTER_ADDR=<head_ip> bash examples/visual_rl/visual_rl_train.sh
-#     Node 1 (Worker): WORLD_SIZE=2 RANK=1 MASTER_ADDR=<head_ip> bash examples/visual_rl/visual_rl_train.sh
+#     Node 0 (Head): WORLD_SIZE=2 RANK=0 MASTER_ADDR=<head_ip> bash examples/unified_rl/run_unified_rl.sh
+#     Node 1 (Worker): WORLD_SIZE=2 RANK=1 MASTER_ADDR=<head_ip> bash examples/unified_rl/run_unified_rl.sh
 #
 # Environment variables:
 #   MODEL_PATH: model path (default: Qwen/Qwen3-VL-8B-Instruct)
@@ -56,7 +56,7 @@ RAY_DASHBOARD_PORT=${RAY_DASHBOARD_PORT:-8265}
 # Project & Log Configuration
 # =============================================================================
 PROJECT_DIR=$(cd "$(dirname "$0")/../.." && pwd)
-LOG_DIR=${LOG_DIR:-"${PROJECT_DIR}/logs/visual_rl_experiment"}
+LOG_DIR=${LOG_DIR:-"${PROJECT_DIR}/logs/unified_rl_experiment"}
 mkdir -p "$LOG_DIR"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
@@ -64,24 +64,24 @@ LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
 # =============================================================================
 # Model & Data Configuration
 # =============================================================================
-CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/visual_rl/visual_rl_config.yaml"}
+CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/unified_rl/unified_rl.yaml"}
 MODEL_PATH=${MODEL_PATH:-"Qwen/Qwen3-VL-8B-Instruct"}
 TRAIN_DATA=${TRAIN_DATA:-"/path/to/your/train_data.jsonl"}
 VAL_DATA=${VAL_DATA:-"/path/to/your/val_data.json"}
-EXPERIMENT_NAME=${EXPERIMENT_NAME:-"visual_rl_experiment"}
-SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/visual_rl/${EXPERIMENT_NAME}"}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-"unified_rl_experiment"}
+SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/unified_rl/${EXPERIMENT_NAME}"}
 FIND_LAST_CHECKPOINT=${FIND_LAST_CHECKPOINT:-true}
 
 # Prompt template & Reward function paths
-FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/visual_rl/format_prompt/unified.jinja"}
-REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/visual_rl/reward_function/unified.py:compute_score"}
+FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/unified_rl/format_prompt/unified.jinja"}
+REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/unified_rl/reward_function/unified.py:compute_score"}
 
 
 # =============================================================================
 # Print configuration
 # =============================================================================
 echo "============================================================"
-echo "  Visual RL Training - Distributed Mode"
+echo "  Unified RL Training - Distributed Mode"
 echo "============================================================"
 echo "  Total nodes: ${WORLD_SIZE}, current node: ${RANK}"
 echo "  Head node: ${MASTER_ADDR}:${MASTER_PORT}"
@@ -191,7 +191,7 @@ if [ "$RANK" == "0" ]; then
     fi
 
     # Launch training
-    echo "[HEAD] Launching Visual RL training..."
+    echo "[HEAD] Launching Unified RL training..."
     python3 -m verl.trainer.main \
         config=${CONFIG_PATH} \
         data.train_files=${TRAIN_DATA} \

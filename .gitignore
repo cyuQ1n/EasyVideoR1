@@ -196,3 +196,8 @@ preprocessed_videos/
 !verl/models/**
 !examples/
 !examples/**
+# Local example worktrees and generated caches
+examples/ourmodel_0403/
+examples/**/__pycache__/
+verl/**/__pycache__/
+

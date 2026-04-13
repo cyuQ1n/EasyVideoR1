@@ -7,6 +7,7 @@ from .grounding import (
     spatial_compute_score,
     spatial_temporal_compute_score,
     temporal_compute_score,
+    tracking_compute_score,
 )
 from .llava import compute_score as llava_compute_score
 from .math_task import compute_score as math_compute_score
@@ -14,7 +15,7 @@ from .multiple_choice import compute_score as multiple_choice_compute_score
 from .numerical import compute_score as numerical_compute_score
 from .ocr import compute_score as ocr_compute_score
 from .open_ended import compute_score as open_ended_compute_score
-from .utils import extract_answer, extract_boxed, preprocess_ground_truth
+from .utils import extract_answer, extract_boxed, format_reward, preprocess_ground_truth
 
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "code_compute_score",
     "extract_answer",
     "extract_boxed",
+    "format_reward",
     "llava_compute_score",
     "math_compute_score",
     "multiple_choice_compute_score",
@@ -32,4 +34,5 @@ __all__ = [
     "spatial_compute_score",
     "spatial_temporal_compute_score",
     "temporal_compute_score",
+    "tracking_compute_score",
 ]

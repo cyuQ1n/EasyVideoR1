@@ -1,5 +1,5 @@
 # =============================================================================
-# Visual RL Training Configuration
+# Unified RL Training Configuration
 # RL configuration for mixed image-video tasks
 # =============================================================================
 #
@@ -60,7 +60,7 @@ data:
   val_batch_size: 512              # Validation batch size
 
   # ===== Misc =====
-  format_prompt: examples/visual_rl/format_prompt/unified.jinja  # Unified prompt template
+  format_prompt: examples/unified_rl/format_prompt/unified.jinja  # Unified prompt template
   override_chat_template: null     # Override chat template (null = disabled)
   shuffle: false                   # Whether to shuffle data
   seed: 1                          # Random seed
@@ -168,7 +168,7 @@ worker:
   # Reward function configuration
   # =============================
   reward:
-    reward_function: examples/visual_rl/reward_function/unified.py:compute_score
+    reward_function: examples/unified_rl/reward_function/unified.py:compute_score
 
 # =============================================================================
 # Trainer configuration
@@ -178,8 +178,8 @@ trainer:
   max_steps: null                              # Maximum number of steps (null = epoch-based)
 
   # ===== Project metadata =====
-  project_name: visual_rl                      # Project name
-  experiment_name: visual_rl_qwen3vl8b   # Experiment name
+  project_name: unified_rl                      # Project name
+  experiment_name: unified_rl_qwen3vl8b   # Experiment name
 
   # ===== Logging =====
   logger: ["file", "wandb"]                    # Logger types: file, wandb, tensorboard
