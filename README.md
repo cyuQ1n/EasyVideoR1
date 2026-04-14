@@ -2,20 +2,25 @@
 
 [中文](README_zh.md)
 
-Built on [EasyR1](https://github.com/hiyouga/EasyR1) and [veRL](https://github.com/volcengine/verl), with support for **Qwen3-VL** series models for video understanding reinforcement learning training.
-
-We thank all authors for providing such a high-performance RL training framework.
+In our pursuit of advancing video understanding through post-training of multimodal LLMs, we found that existing RL frameworks were not particularly well-suited for video understanding scenarios. Therefore, we built **EasyVideoR1** to implement relevant optimizations, which we have outlined in this report \[Link to Be Add\]. To the best of our knowledge, this should be the most suitable code repository for research on RL post-training for video understanding at the time of this report's release. It supports a wide range of video understanding tasks, incorporates research-friendly interfaces (mixed off-policy and on-policy training, joint image-video training), enhances training efficiency for video RL through systematic design, and provides an efficient, comprehensive, and accuracy-aligned evaluation framework. We hope this repository can inspire enthusiasm within the multimodal community for video understanding research. We also call upon community researchers to join us in maintaining this codebase, working together to create the most comprehensive and research-friendly repository for video understanding. We welcome and will consider merging any valuable pull requests.
 
 ## 📍 Features
 
-- Support for **Qwen3-VL** series vision-language models
-- **Mixed image-video training** with optimized gradient flow
-- Independent resolution control for images and videos
-- Video metadata support for precise frame processing
-- Default example prompt/reward stack for video understanding tasks
-  - Fully implemented in the default reward: multiple choice, numerical, temporal grounding, spatial-temporal grounding, open-ended QA
-  - Prompt formatting exists for additional task types such as spatial grounding, tracking, OCR, boolean QA, math, and code generation
-
+### Video Friendly Optimization
+-   1. Offline Preprocessing and Cache-Based Training: **reduces rollout generation time by 1.5× and reference model forward time by 2.9×, and achieves a 1.47× speedup in both wall-clock time per step and token throughput.**
+-   2. Task-Aware Prompt and Reward Assigenment System: **supports 10+ task types and their accuracy scoring/reward methods.**
+         · Fully implemented in the default reward: multiple choice, numerical, temporal grounding, spatial-temporal grounding, open-ended QA.
+         · Prompt formatting exists for additional task types such as spatial grounding, tracking, OCR, boolean QA, math, and code generation
+    3. More flexible video-hyperparameter settings: **Video metadata support for precise frame processing**
+    4. Advanced VLMs: **supports Qwen3-VL series vision-language models.**
+    5. Different RL Algorithm:  **supports popular RL algorithms like GRPO, DAPO**
+### Research-Friendly Interfaces for Algorithm Development
+-   1. Mixed-Modality Pipeline Adaptation: **supports joint Text-Image-Video training with optimized gradient flow.**
+-   2. A Lightweight Mix-policy Interface: **supports hybrid online-offline training.**
+### Fast & Comprehensive Evaluation Framework
+-   1. Asynchronous Inference: **Precomputed Frame Caching** and **Asynchronous Pipeline with AsyncLLMEngine**  ensure that the GPU remains productive at every scheduling step: cached I/O feeds data continuously, asynchronous queuing removes batch-boundary stalls, and chunked prefill prevents any single long sequence from monopolizing compute.
+-   2. Comprehensive and reproducible evaluation: **supports 22+ Video Understanding Benchmarks.**
+       
 ## 🏆 Performance
 
 Training with EasyVideoR1 yields consistent improvements over the Qwen3-VL-8B base models across 10 video understanding benchmarks, with an average accuracy gain of **+2.3%**.
@@ -191,26 +196,21 @@ A: Run `ray status` to check the cluster. Ensure all nodes are connected and NCC
 This project is built upon the excellent work of:
 - [EasyR1](https://github.com/hiyouga/EasyR1) — Efficient, scalable RL training framework
 - [veRL](https://github.com/volcengine/verl) — High-performance RL with HybridEngine
-- [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) — Vision-language model family
+- [OneThinker](https://github.com/tulerfeng/OneThinker) - All-in-one Reasoning Model for Image and Video
+
 
 ## 📄 Citation
 
-If you use this project, please cite EasyR1 and veRL:
+If you use this project, please cite:
 
 ```bibtex
-@misc{zheng2025easyr1,
-  title        = {EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework},
-  author       = {Yaowei Zheng, Junting Lu, Shenzhi Wang, Zhangchi Feng, Dongdong Kuang, Yuwen Xiong, Richong Zhang},
-  howpublished = {\url{https://github.com/hiyouga/EasyR1}},
-  year         = {2025}
+@misc{qin2026easyvideor1,
+  title        = {EasyVideoR1: Easier RL for Video Understanding},
+  author       = {},
+  howpublished = {\url{https://github.com/cyuQ1n/EasyVideoR1}},
+  year         = {2026}
 }
 
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and others},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
-}
 ```
 
 ## 📜 License
