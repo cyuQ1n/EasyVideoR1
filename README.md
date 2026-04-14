@@ -8,12 +8,10 @@ In our pursuit of advancing video understanding through post-training of multimo
 
 ### Video Friendly Optimization
 -   1. Offline Preprocessing and Cache-Based Training: **reduces rollout generation time by 1.5× and reference model forward time by 2.9×, and achieves a 1.47× speedup in both wall-clock time per step and token throughput.**
--   2. Task-Aware Prompt and Reward Assigenment System: **supports 10+ task types and their accuracy scoring/reward methods.**
-         · Fully implemented in the default reward: multiple choice, numerical, temporal grounding, spatial-temporal grounding, open-ended QA.
-         · Prompt formatting exists for additional task types such as spatial grounding, tracking, OCR, boolean QA, math, and code generation
-    3. More flexible video-hyperparameter settings: **Video metadata support for precise frame processing**
-    4. Advanced VLMs: **supports Qwen3-VL series vision-language models.**
-    5. Different RL Algorithm:  **supports popular RL algorithms like GRPO, DAPO**
+-   2. Task-Aware Prompt and Reward Assigenment System: **supports 10+ task types and their accuracy scoring/reward methods.** Specifically, EasyVideoR1 fully implements the following reward types by default: multiple choice, numerical, temporal grounding, spatial-temporal grounding, and open-ended QA. Prompt formatting is also available for additional task types including spatial grounding, tracking, OCR, boolean QA, math, and code generation.
+-   3. More flexible video-hyperparameter settings: **Video metadata support for precise frame processing**
+-   4. Advanced VLMs: **supports Qwen3-VL series vision-language models.**
+-   5. Different RL Algorithm:  **supports popular RL algorithms like GRPO, DAPO**
 ### Research-Friendly Interfaces for Algorithm Development
 -   1. Mixed-Modality Pipeline Adaptation: **supports joint Text-Image-Video training with optimized gradient flow.**
 -   2. A Lightweight Mix-policy Interface: **supports hybrid online-offline training.**
