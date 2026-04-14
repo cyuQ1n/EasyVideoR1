@@ -2,20 +2,23 @@
 
 [English](README.md)
 
-基于 [EasyR1](https://github.com/hiyouga/EasyR1) 和 [veRL](https://github.com/volcengine/verl) 构建，支持 **Qwen3-VL** 系列模型进行视频理解强化学习训练。
-
-感谢所有作者提供如此高性能的强化学习训练框架。
+在推进多模态大语言模型后训练以提升视频理解能力的过程中，我们发现现有的强化学习框架在视频理解场景中适配的不太好。因此，我们构建了EasyVideoR1来实现相关优化，具体内容已在本文档中概述[链接待添加]。据我们所知，这应该是迄今为止最适合视频理解RL研究的代码仓库。它支持广泛的视频理解任务，融入了适合社区进行后训练研究和探索的接口（off-policy与on-policy混合训练、图像-视频联合训练），通过系统化设计提升了视频强化学习的训练效率，并提供了高效、全面且与已对齐准确率的视频理解评测框架。我们希望这个仓库能够激发多模态社区对视频理解研究的热情。我们也呼吁社区研究人员加入我们，共同维护这个代码库，携手打造最全面、最适合学术探索的视频理解RL仓库。我们欢迎并会认真考虑合并任何有价值的pull request。
 
 ## 📍 特性
 
-- 支持 **Qwen3-VL** 系列视觉语言模型
-- **图像-视频混合训练**，优化梯度流
-- 图像和视频分辨率独立控制
-- 视频元数据支持，精确帧处理
-- 默认示例 prompt/reward 栈面向视频理解任务
-  - 默认 reward 已完整实现：多选题、数值计算、时间定位、时空定位、开放式问答
-  - 额外还提供了空间定位、目标追踪、OCR、布尔问答、数学、代码生成等 prompt 模板分支
-
+### 视频友好的RL管线优化
+-  1. 离线预处理与基于缓存的训练：rollout生成时间减少1.5倍，参考模型前向时间减少2.9倍，**单步时间和token吞吐量均实现1.47倍加速**。
+-  2. 任务感知提示与奖励分配系统：**支持10+种任务类型及其准确率评分/奖励方法**。具体而言，EasyVideoR1默认完整实现了以下奖励类型：选择题、数值题、时序定位、时空定位、开放式问答。此外，提示词格式也已为以下额外任务类型准备就绪：空间定位、Tracking、OCR、布尔问答、数学和代码生成。
+-  3. 更灵活的视频超参数设置：支持视频元数据以实现精确的帧处理。
+-  4. 先进视觉语言模型：支持Qwen3-VL系列视觉语言模型。
+-  5. 多种强化学习算法：支持GRPO、DAPO等主流强化学习算法。
+### 算法开发研究友好接口
+-  1. 混合模态流程适配：通过优化梯度流，**支持联合文本-图像-视频训练**。
+-  2. 轻量级混合策略接口：**支持在线-离线混合训练（mix policy）**。
+### 快速全面的评估框架
+-  1. 异步推理：预计算帧缓存与异步流水线结合AsyncLLMEngine，确保GPU在每个调度步骤都保持高效：缓存I/O持续供给数据，异步队列消除批次边界停滞，分块预填充防止任何单一长序列独占计算资源。
+-  2. 全面且可复现的评估：支持22+个视频理解基准测试。
+      
 ## 🏆 性能
 
 使用 EasyVideoR1 训练后，在 10 个视频理解基准测试上相比 Qwen3-VL-8B 基座模型取得了一致的提升，平均准确率提升 **+2.3%**。
@@ -191,7 +194,7 @@ bash examples/unified_rl/run_unified_rl.sh
 本项目基于以下优秀工作构建：
 - [EasyR1](https://github.com/hiyouga/EasyR1) — 高效可扩展的 RL 训练框架
 - [veRL](https://github.com/volcengine/verl) — 高性能 RL 与 HybridEngine
-- [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) — 视觉语言模型系列
+- [OneThinker](https://github.com/tulerfeng/OneThinker) - 图和视频的联合RL框架
 
 ## 📄 引用
 
@@ -199,17 +202,10 @@ bash examples/unified_rl/run_unified_rl.sh
 
 ```bibtex
 @misc{zheng2025easyr1,
-  title        = {EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework},
-  author       = {Yaowei Zheng, Junting Lu, Shenzhi Wang, Zhangchi Feng, Dongdong Kuang, Yuwen Xiong, Richong Zhang},
-  howpublished = {\url{https://github.com/hiyouga/EasyR1}},
-  year         = {2025}
-}
-
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and others},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
+  title        = {EasyVideoR1: Easier RL for Video Understanding},
+  author       = {},
+  howpublished = {\url{[https://github.com/hiyouga/EasyR1](https://github.com/cyuQ1n/EasyVideoR1)}},
+  year         = {2026}
 }
 ```
 
