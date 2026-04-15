@@ -18,6 +18,7 @@ In our pursuit of advancing video understanding through post-training of multimo
 ### Fast & Comprehensive Evaluation Framework
 -   1. Asynchronous Inference: **Precomputed Frame Caching** and **Asynchronous Pipeline with AsyncLLMEngine**  ensure that the GPU remains productive at every scheduling step: cached I/O feeds data continuously, asynchronous queuing removes batch-boundary stalls, and chunked prefill prevents any single long sequence from monopolizing compute.
 -   2. Comprehensive and reproducible evaluation: **supports 22+ Video Understanding Benchmarks.**
+-   3. Accuracy-aligned: for Qwen3-VL series, **evaluation results align with official scores (within 1% deviation).**
        
 ## 🏆 Performance
 
