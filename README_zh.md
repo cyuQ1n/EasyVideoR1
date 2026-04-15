@@ -1,4 +1,4 @@
-# EasyVideoR1
+# EasyVideoR1: Easier RL for Video Understanding
 
 [English](README.md)
 
