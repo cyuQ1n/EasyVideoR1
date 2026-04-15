@@ -7,11 +7,11 @@
 ## 📍 特性
 
 ### 视频友好的RL管线优化
--  1. 离线预处理与基于缓存的训练：rollout生成时间减少1.5倍，参考模型前向时间减少2.9倍，**单步时间和token吞吐量均实现1.47倍加速**。
+-  1. 离线预处理与基于缓存的训练：rollout生成加速1.5倍，log-probability计算加速2.9倍，**整体单步时间和token吞吐量均实现1.47倍加速**。
 -  2. 任务感知提示与奖励分配系统：**支持10+种任务类型及其准确率评分/奖励方法**。具体而言，EasyVideoR1默认完整实现了以下奖励类型：选择题、数值题、时序定位、时空定位、开放式问答。此外，提示词格式也已为以下额外任务类型准备就绪：空间定位、Tracking、OCR、布尔问答、数学和代码生成。
 -  3. 更灵活的视频超参数设置：支持视频元数据以实现精确的帧处理。
--  4. 先进视觉语言模型：支持Qwen3-VL系列视觉语言模型。
--  5. 多种强化学习算法：支持GRPO、DAPO等主流强化学习算法。
+-  4. 先进视觉语言模型：支持 **Qwen2-VL / Qwen2.5-VL / Qwen3-VL / Qwen3.5-VL** 系列视觉语言模型。
+-  5. 丰富的强化学习算法：继承自 [EasyR1](https://github.com/hiyouga/EasyR1)，支持 **GRPO、DAPO、GSPO、CISPO、Reinforce++、ReMax、RLOO** 等多种算法。
 ### 算法开发研究友好接口
 -  1. 混合模态流程适配：通过优化梯度流，**支持联合文本-图像-视频训练**。
 -  2. 轻量级混合策略接口：**支持在线-离线混合训练（mix policy）**。
@@ -27,7 +27,7 @@
   <img src="assets/benchmark.png" alt="基准测试结果" width="90%">
 </div>
 
-视频预处理缓存机制相比实时解码，将单步训练时间减少 **1.47 倍**，且不影响精度。
+视频预处理缓存机制相比实时解码，将单步训练速度提升 **1.47 倍**，且不影响精度。
 
 <div align="center">
   <img src="assets/efficiency.png" alt="训练效率" width="90%">
@@ -138,7 +138,7 @@ EasyVideoR1/
 ├── verl/                       # 核心 RL 训练框架
 │   ├── trainer/                # 训练循环 & Ray 编排
 │   ├── workers/                # Actor、rollout、reward、critic workers
-│   ├── models/                 # Qwen3-VL / Qwen2-VL 模型支持
+│   ├── models/                 # Qwen2-VL / Qwen2.5-VL / Qwen3-VL 模型支持
 │   └── utils/                  # 数据集、分词、FSDP 工具
 ├── examples/
 │   ├── video_rl/               # 纯视频 RL 管线（单文件 reward）
@@ -204,7 +204,7 @@ bash examples/unified_rl/run_unified_rl.sh
 @misc{zheng2025easyr1,
   title        = {EasyVideoR1: Easier RL for Video Understanding},
   author       = {},
-  howpublished = {\url{[https://github.com/hiyouga/EasyR1](https://github.com/cyuQ1n/EasyVideoR1)}},
+  howpublished = {\url{https://github.com/cyuQ1n/EasyVideoR1}},
   year         = {2026}
 }
 ```
