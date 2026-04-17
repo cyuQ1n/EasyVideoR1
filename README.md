@@ -205,7 +205,7 @@ If you use this project, please cite:
 ```bibtex
 @misc{qin2026easyvideor1,
   title        = {EasyVideoR1: Easier RL for Video Understanding},
-  author       = {},
+  author       = {Chuanyu Qin, Chenxu Yang, Qingyi Si, Naibin Gu, Dingyu Yao, Zheng Lin, Peng Fu, Nan Duan, Jiaqi Wang},
   howpublished = {\url{https://github.com/cyuQ1n/EasyVideoR1}},
   year         = {2026}
 }
