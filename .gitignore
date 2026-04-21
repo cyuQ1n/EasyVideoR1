@@ -120,6 +120,11 @@ ipython_config.py
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
+# Local-only Qwen3.5 experimental example directory.
+# Note: tracked files under examples/video_rl_v2 are hidden locally via git update-index flags,
+# since .gitignore does not suppress modifications to already tracked files.
+examples/video_rl_v2/
+
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid

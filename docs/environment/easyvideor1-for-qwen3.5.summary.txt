@@ -1,0 +1,15 @@
+python= 3.11.14
+platform= Linux-5.10.134-13.al8.x86_64-x86_64-with-glibc2.39
+cuda= 12.9
+torch=2.10.0+cu129
+torchvision=0.25.0+cu129
+torchaudio=2.10.0+cu129
+transformers=5.5.4
+vllm=0.19.1
+ray=2.54.0
+qwen-vl-utils=0.0.14
+flash-linear-attention=0.4.2
+flash-attn=2.8.3
+torchcodec=0.11.1
+causal-conv1d=1.6.1
+verl=0.3.3.dev0

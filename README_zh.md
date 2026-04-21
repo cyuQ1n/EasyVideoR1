@@ -4,6 +4,10 @@
 
 在推进多模态大语言模型后训练以提升视频理解能力的过程中，我们发现现有的强化学习框架在视频理解场景中适配的不太好。因此，我们构建了EasyVideoR1来实现相关优化，具体内容已在[report](https://github.com/cyuQ1n/EasyVideoR1/blob/main/EasyVideoR1-report.pdf)中概述。据我们所知，这应该是迄今为止最适合视频理解RL研究的代码仓库。它支持广泛的视频理解任务，融入了适合社区进行后训练研究和探索的接口（off-policy与on-policy混合训练、图像-视频联合训练），通过系统化设计提升了视频强化学习的训练效率，并提供了高效、全面且与已对齐准确率的视频理解评测框架。我们希望这个仓库能够激发多模态社区对视频理解研究的热情。我们也呼吁社区研究人员加入我们，共同维护这个代码库，携手打造最全面、最适合学术探索的视频理解RL仓库。我们欢迎并会认真考虑合并任何有价值的pull request。
 
+> 分支说明
+>
+> 当前分支作为 **Qwen3.5 RL 训练分支** 维护。公开训练入口是 [`examples/video_rl_qwen3.5/video_rl_v1_dapo.sh`](examples/video_rl_qwen3.5/video_rl_v1_dapo.sh)，公开配置是 [`examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml`](examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml)。已验证的运行环境导出文件位于 [`docs/environment/`](docs/environment/README.md)。
+
 ## 📍 特性
 
 ### 视频友好的RL管线优化
@@ -36,100 +40,94 @@
 
 ## 📐 安装
 
-### 第一步：创建 Conda 环境
+这个分支已经用 `easyvideor1-for-qwen3.5` 环境验证过。环境导出文件如下：
+
+- [`docs/environment/easyvideor1-for-qwen3.5.conda.yaml`](docs/environment/easyvideor1-for-qwen3.5.conda.yaml)
+- [`docs/environment/easyvideor1-for-qwen3.5.conda-explicit.txt`](docs/environment/easyvideor1-for-qwen3.5.conda-explicit.txt)
+- [`docs/environment/easyvideor1-for-qwen3.5.pip-freeze.txt`](docs/environment/easyvideor1-for-qwen3.5.pip-freeze.txt)
+- [`docs/environment/easyvideor1-for-qwen3.5.summary.txt`](docs/environment/easyvideor1-for-qwen3.5.summary.txt)
+
+推荐安装方式：
 
 ```bash
-conda create -n easyvideor1 python=3.11
-conda activate easyvideor1
-```
+conda env create -f docs/environment/easyvideor1-for-qwen3.5.conda.yaml
+conda activate easyvideor1-for-qwen3.5
 
-### 第二步：克隆并安装
-
-```bash
 git clone https://github.com/cyuQ1n/EasyVideoR1.git
 cd EasyVideoR1
 pip install -e .
 ```
 
-### 第三步：安装 Flash Attention
+如果你只想安装 Python 层依赖，也可以参考 [`requirements.txt`](requirements.txt)。但精确复现当前分支已验证环境时，请以 `docs/environment/` 里的导出文件为准。
 
-```bash
-pip install flash-attn==2.8.3 --no-build-isolation
-```
+已验证的关键版本：
+
+- Python `3.11.14`
+- PyTorch `2.10.0+cu129`
+- Transformers `5.5.4`
+- vLLM `0.19.1`
+- Ray `2.54.0`
+- qwen-vl-utils `0.0.14`
+- flash-attn `2.8.3`
+- flash-linear-attention `0.4.2`
+- torchcodec `0.11.1`
 
 ## 🚀 快速开始
 
-以下是最简 3 步启动训练的流程。
+当前分支推荐直接使用 `examples/video_rl_qwen3.5/` 下的 Qwen3.5 训练管线。
 
-### 第一步：准备数据
+### 第一步：确认示例配置里的默认路径
 
-创建 JSON/JSONL 文件，每条数据格式如下：
+当前提交的 Qwen3.5 示例假设你使用的是一套预处理后的视频 RL 数据布局：
 
-```json
-{
-  "problem": "这个视频中发生了什么？",
-  "answer": "一只猫跳上了桌子。",
-  "videos": ["path/to/video.mp4"],
-  "data_type": "video",
-  "problem_type": "open-ended"
-}
-```
+- 模型：`/path/to/Qwen3.5-2B`
+- 训练数据：`/path/to/train.jsonl`
+- 验证数据：`/path/to/val.jsonl`
+- 预处理视频缓存：`/path/to/preprocessed_pt_dir`
 
-多选题需要额外添加 `options` 字段：
+这些默认值都写在 [`examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml`](examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml) 里。如果你不是在我们的内部环境运行，请先替换掉这些路径。
 
-```json
-{
-  "problem": "视频中汽车是什么颜色的？",
-  "answer": "B",
-  "videos": ["path/to/video.mp4"],
-  "data_type": "video",
-  "problem_type": "multiple choice",
-  "options": ["A. 红色", "B. 蓝色", "C. 绿色", "D. 白色"]
-}
-```
-
-> 完整的 `problem_type` 列表和数据字段说明请参考 [docs/config_parameters.md](docs/config_parameters.md)。
-
-### 第二步：编辑配置
-
-复制并编辑示例配置：
+可以直接编辑 YAML，也可以通过环境变量覆盖：
 
 ```bash
-cp examples/video_rl/video_rl.yaml my_config.yaml
+export EASYVIDEORL_MODEL_PATH=/abs/path/to/Qwen3.5-2B
+export EASYVIDEORL_TRAIN_FILES=/abs/path/to/train.jsonl
+export EASYVIDEORL_VAL_FILES=/abs/path/to/val.jsonl
+export EASYVIDEORL_PREPROCESSED_VIDEO_DIR=/abs/path/to/preprocessed_pt_dir
+export EASYVIDEORL_VAL_PREPROCESSED_VIDEO_DIR=/abs/path/to/preprocessed_pt_dir
 ```
 
-至少修改以下字段：
+### 第二步：查看当前分支的 Qwen3.5 训练文件
 
-```yaml
-data:
-  train_files: /path/to/your/train.jsonl
-  val_files: /path/to/your/val.json
+- 启动脚本：[`examples/video_rl_qwen3.5/video_rl_v1_dapo.sh`](examples/video_rl_qwen3.5/video_rl_v1_dapo.sh)
+- 训练配置：[`examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml`](examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml)
+- 适配说明：[`docs/qwen3_5_adaptation_notes.md`](docs/qwen3_5_adaptation_notes.md)
 
-worker:
-  actor:
-    model:
-      model_path: Qwen/Qwen3-VL-8B-Instruct
-
-trainer:
-  experiment_name: my_first_run
-  save_checkpoint_path: ./checkpoints/my_first_run
-```
+当前分支已经把 Qwen3.5 示例整理成“预处理 JSONL + PT 缓存”的通用训练布局，并将 prompt 模板与 reward 逻辑一并放在 `examples/video_rl_qwen3.5/` 下。
 
 ### 第三步：启动训练
 
 ```bash
-# 单机训练（8 GPU）
-bash examples/video_rl/run_video_rl.sh
+# 单机训练
+bash examples/video_rl_qwen3.5/video_rl_v1_dapo.sh
 
-# 多机训练：在每个节点上设置 WORLD_SIZE、RANK、MASTER_ADDR
-WORLD_SIZE=2 RANK=0 MASTER_ADDR=<主节点IP> bash examples/video_rl/run_video_rl.sh  # 主节点
-WORLD_SIZE=2 RANK=1 MASTER_ADDR=<主节点IP> bash examples/video_rl/run_video_rl.sh  # 工作节点
+# 多机训练
+WORLD_SIZE=2 RANK=0 MASTER_ADDR=<主节点IP> bash examples/video_rl_qwen3.5/video_rl_v1_dapo.sh
+WORLD_SIZE=2 RANK=1 MASTER_ADDR=<主节点IP> bash examples/video_rl_qwen3.5/video_rl_v1_dapo.sh
 ```
 
-训练完成后，将 FSDP 检查点合并为 Hugging Face 格式：
+脚本默认使用的 Conda 环境名是：
 
 ```bash
-python3 scripts/model_merger.py --local_dir checkpoints/my_first_run/global_step_100/actor
+easyvideor1-for-qwen3.5
+```
+
+如果需要，也可以通过 `CONDA_ENV_PREFIX` 或 `CONDA_ENV_NAME` 覆盖。
+
+训练完成后，可以将 FSDP 检查点合并为 Hugging Face 格式：
+
+```bash
+python3 scripts/model_merger.py --local_dir checkpoints/qwen3_5_onethinker100k/<experiment>/global_step_*/actor
 ```
 
 ## 📂 项目结构
@@ -142,11 +140,12 @@ EasyVideoR1/
 │   ├── models/                 # Qwen2-VL / Qwen2.5-VL / Qwen3-VL 模型支持
 │   └── utils/                  # 数据集、分词、FSDP 工具
 ├── examples/
-│   ├── video_rl/               # 纯视频 RL 管线（单文件 reward）
+│   ├── video_rl/               # 原始纯视频 RL 管线
+│   ├── video_rl_qwen3.5/       # 当前分支主要公开的 Qwen3.5 视频 RL 管线
 │   └── unified_rl/             # 图文视频混合管线（模块化 reward）
 ├── eval/                       # 评测工具集（25+ 基准测试）
 ├── scripts/                    # 检查点合并、视频预处理
-└── docs/                       # 详细文档
+└── docs/                       # 详细文档与环境导出
 ```
 
 ## 🔧 示例管线
@@ -157,6 +156,19 @@ EasyVideoR1/
 
 ```bash
 bash examples/video_rl/run_video_rl.sh
+```
+
+### Qwen3.5 Video RL (`examples/video_rl_qwen3.5/`)
+
+这是当前分支的主训练路径，包含：
+
+- `verl/models/transformers/qwen3_5.py` 中的 Qwen3.5 模型适配
+- Qwen3.5 的 position id 路由
+- 多机启动脚本 `video_rl_v1_dapo.sh`
+- Qwen3.5 配置 `video_rl_v1_qwen3_5.yaml`
+
+```bash
+bash examples/video_rl_qwen3.5/video_rl_v1_dapo.sh
 ```
 
 ### Unified RL (`examples/unified_rl/`)
@@ -172,6 +184,8 @@ bash examples/unified_rl/run_unified_rl.sh
 | 文档 | 说明 |
 |------|------|
 | [配置参数参考](docs/config_parameters.md) | 所有 YAML 配置选项的完整说明 |
+| [Qwen3.5 适配说明](docs/qwen3_5_adaptation_notes.md) | 当前分支中与 Qwen3.5 训练相关的模型和训练改动 |
+| [环境导出](docs/environment/README.md) | 当前 Qwen3.5 分支已验证运行环境的导出文件 |
 | [RL 训练深度解析](docs/rl_training_deep_dive.md) | GRPO 算法、系统架构、训练流程 |
 | [Qwen3-VL 多模态处理](docs/qwen3_vl_multimodal_processing.md) | 视觉语言模型内部机制 |
 | [Token 计算](docs/token_calculation.md) | Token 计数与显存估算 |
@@ -196,6 +210,7 @@ bash examples/unified_rl/run_unified_rl.sh
 - [EasyR1](https://github.com/hiyouga/EasyR1) — 高效可扩展的 RL 训练框架
 - [veRL](https://github.com/volcengine/verl) — 高性能 RL 与 HybridEngine
 - [OneThinker](https://github.com/tulerfeng/OneThinker) - 图和视频的联合RL框架
+- [ms-swift](https://github.com/modelscope/ms-swift) — Qwen3.5 相关环境设置还参考了官方的 [Qwen3.5 最佳实践](https://swift.readthedocs.io/zh-cn/latest/BestPractices/Qwen3_5-Best-Practice.html) 以及 `ms-swift` 代码仓库。
 
 ## 📄 引用
 

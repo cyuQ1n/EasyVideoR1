@@ -1,9 +1,12 @@
 # EasyVideoR1 Qwen3.5 适配说明
 
 > 日期：2026-03-13
+> 最后更新：2026-04-21
 > 目标：在 EasyVideoR1 框架中支持 Qwen3.5 系列（model_type: `qwen3_5`）的视频 RL 训练
-> 验证模型：Qwen3.5-2B（默认配置使用 `${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}`）
-> 运行环境：conda 环境 `rl-for-qwen3.5`（Python 3.12, vLLM 0.17.0, transformers 5.3.0, torch 2.10.0+cu128）
+> 公开训练入口：`examples/video_rl_qwen3.5/`
+> 验证模型：Qwen3.5-2B（当前示例默认使用 `${oc.env:EASYVIDEORL_MODEL_PATH,/path/to/Qwen3.5-2B}`）
+> 已验证环境：conda 环境 `easyvideor1-for-qwen3.5`（Python 3.11.14, vLLM 0.19.1, transformers 5.5.4, torch 2.10.0+cu129）
+> 环境导出：`docs/environment/easyvideor1-for-qwen3.5.*`
 
 ---
 
@@ -20,15 +23,23 @@
 | `qwen3_5_base_forward()` | 覆盖 `Qwen3_5Model.forward`，调用 `_get_input_embeds` 后传入 `language_model` |
 | `qwen3_5_model_forward()` | 覆盖 `Qwen3_5ForConditionalGeneration.forward`，调用 `self.model` + `self.lm_head` 返回 logits |
 
-### 2. `examples/video_rl_v2/video_rl_v1_qwen3_5.yaml`（训练配置）
+### 2. `examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml`（训练配置）
 
-基于 `video_rl_v1_vanilla.yaml` 调整：
-- `model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,./models/Qwen3.5-2B}`
-- `micro_batch_size_per_device_for_update: 1`（减小显存占用）
-- `micro_batch_size_per_device_for_experience: 1`
-- `max_token_len_per_gpu: 32000`
-- `gpu_memory_utilization: 0.2`（为 FSDP 训练腾出显存）
-- `project_name: video_rl_qwen3_5`
+当前提交版本已经不再只是一个最小 demo 配置，而是整理成一套可复用的预处理数据格式与训练参数。关键项包括：
+- `model_path: ${oc.env:EASYVIDEORL_MODEL_PATH,/path/to/Qwen3.5-2B}`
+- `train_files: ${oc.env:EASYVIDEORL_TRAIN_FILES,/path/to/train.jsonl}`
+- `val_files: ${oc.env:EASYVIDEORL_VAL_FILES,/path/to/val.jsonl}`
+- `preprocessed_video_dir: ${oc.env:EASYVIDEORL_PREPROCESSED_VIDEO_DIR,/path/to/preprocessed_pt_dir}`
+- `val_preprocessed_video_dir: ${oc.env:EASYVIDEORL_VAL_PREPROCESSED_VIDEO_DIR,/path/to/preprocessed_pt_dir}`
+- `format_prompt: examples/video_rl_qwen3.5/format_prompt/unified.jinja`
+- `reward_function: examples/video_rl_qwen3.5/video_v1.py:compute_score`
+- `global_batch_size: 32`
+- `rollout_batch_size: 64`
+- `worker.rollout.n: 8`
+- `worker.rollout.tensor_parallel_size: 2`
+- `worker.rollout.gpu_memory_utilization: 0.8`
+- `optim.strategy: adamw_bf16`
+- `trainer.find_last_checkpoint: false`
 
 ---
 
@@ -68,9 +79,9 @@
 
 ---
 
-## 三、vLLM 0.17.0 + transformers 5.3.0 兼容性修复
+## 三、vLLM / Transformers 兼容性修复
 
-这些修改不仅对 Qwen3.5 必要，也影响 Qwen3-VL 在新环境下的运行。
+这些修改最初是为 `vLLM 0.17.0 + transformers 5.3.0` 引入的兼容层，但当前分支仍沿用这些修复，并已在 `vLLM 0.19.1 + transformers 5.5.4` 环境下验证可用。
 
 ### 8. `verl/workers/fsdp_workers.py` — `no_init_weights` 导入路径
 
@@ -87,15 +98,15 @@ except ImportError:
     from transformers.initialization import no_init_weights
 ```
 
-### 9. `verl/workers/rollout/vllm_rollout_spmd.py` — 两处 vLLM API 变更
+### 9. `verl/workers/rollout/vllm_rollout_spmd.py` — vLLM API 变更兼容
 
 **9a. 移除 `disable_mm_preprocessor_cache`**
 
-vLLM 0.17.0 移除了此参数（默认行为等价），直接删除该行。
+较新的 vLLM 已移除此参数（默认行为等价），直接删除该行。
 
 **9b. `SamplingParams` 变为 `msgspec.Struct`（只读属性）**
 
-vLLM 0.17.0 的 `SamplingParams` 不再支持 `setattr`。`update_sampling_params` 方法重写为：
+较新的 vLLM 中 `SamplingParams` 不再支持 `setattr`。`update_sampling_params` 方法重写为：
 - 检测 `__struct_fields__`（msgspec.Struct 标志）
 - 如果是 Struct：读取当前字段值，合并 overrides，重建 `SamplingParams` 对象
 - 如果不是：走旧的 `setattr` 路径（兼容旧版 vLLM）
@@ -103,7 +114,7 @@ vLLM 0.17.0 的 `SamplingParams` 不再支持 `setattr`。`update_sampling_param
 
 ### 10. `verl/workers/sharding_manager/fsdp_vllm.py` — TP group API 重命名
 
-vLLM 0.17.0 将 `get_tensor_model_parallel_group()` 改为 `get_tp_group()`：
+较新的 vLLM 将 `get_tensor_model_parallel_group()` 改为 `get_tp_group()`：
 
 ```python
 try:
@@ -135,7 +146,7 @@ Qwen3.5 的 position_ids 是 `(3, batch_size, seq_length)` 而非 `(batch_size, 
 
 ## 五、启动脚本修改
 
-### 13. `examples/video_rl_v2/video_rl_v1_dapo.sh`
+### 13. `examples/video_rl_qwen3.5/video_rl_v1_dapo.sh`
 
 - `PROJECT_DIR` 改为随脚本位置自动推导，不再绑定固定机器目录
 - `CONFIG_PATH` 默认指向仓库内的 `video_rl_v1_qwen3_5.yaml`，同时允许环境变量覆盖
@@ -149,14 +160,14 @@ Qwen3.5 的 position_ids 是 `(3, batch_size, seq_length)` 而非 `(batch_size, 
 | 文件 | 类型 | 改动说明 |
 |------|------|----------|
 | `verl/models/transformers/qwen3_5.py` | **新增** | Qwen3.5 模型适配（forward + position_ids） |
-| `examples/video_rl_v2/video_rl_v1_qwen3_5.yaml` | **新增** | Qwen3.5-2B 训练配置 |
+| `examples/video_rl_qwen3.5/video_rl_v1_qwen3_5.yaml` | **新增** | Qwen3.5-2B 训练配置 |
 | `verl/models/monkey_patch.py` | 修改 | 注册 qwen3_5 模型类型 |
 | `verl/utils/dataset.py` | 修改 | model_type 参数 + position_ids 路由 |
 | `verl/trainer/data_loader.py` | 修改 | 自动检测 model_type |
 | `verl/trainer/main.py` | 修改 | 传递 model_path |
 | `verl/utils/flops_counter.py` | 修改 | 添加 qwen3_5 FLOPS 估算 |
 | `verl/workers/fsdp_workers.py` | 修改 | transformers 5.x 兼容 |
-| `verl/workers/rollout/vllm_rollout_spmd.py` | 修改 | vLLM 0.17.0 兼容（2 处） |
-| `verl/workers/sharding_manager/fsdp_vllm.py` | 修改 | vLLM 0.17.0 TP group API |
+| `verl/workers/rollout/vllm_rollout_spmd.py` | 修改 | vLLM 新版 API 兼容 |
+| `verl/workers/sharding_manager/fsdp_vllm.py` | 修改 | vLLM TP group API 兼容 |
 | `verl/models/transformers/flash_attention_utils.py` | 修改 | 支持 3D position_ids |
-| `examples/video_rl_v2/video_rl_v1_dapo.sh` | 修改 | 切换到 Qwen3.5 配置和模型 |
+| `examples/video_rl_qwen3.5/video_rl_v1_dapo.sh` | 修改 | 切换到 Qwen3.5 配置和模型 |

@@ -1,25 +1,27 @@
-accelerate
-codetiming
-datasets
-# flash-attn>=2.4.3
-liger-kernel
-mathruler
-numpy
-omegaconf
-pandas
-peft
-pillow
-pyarrow>=15.0.0
-pylatexenc
+accelerate==1.13.0
+codetiming==1.4.0
+datasets==4.8.4
+liger-kernel==0.7.0
+math_verify==0.9.0
+mathruler==0.1.0
+numpy==2.2.6
+omegaconf==2.3.0
+pandas==3.0.2
+peft==0.19.1
+pillow==12.1.1
+pyarrow==23.0.1
+pylatexenc==2.10
 qwen-vl-utils[decord]==0.0.14
-ray[default]
-tensordict
-torchdata
-# transformers==5.3.0
-# vllm==0.11.0
-wandb
-# For Reward
-rouge_score
-math_verify
-mathruler
-codetiming
+ray[default]==2.54.0
+rouge_score==0.1.2
+tensordict==0.12.2
+torchcodec==0.11.1
+torchdata==0.11.0
+vllm==0.19.1
+transformers==5.5.4
+flash-attn==2.8.3
+flash-linear-attention==0.4.2
+wandb==0.26.0
+
+# Optional but present in the tested environment export:
+# causal-conv1d==1.6.1

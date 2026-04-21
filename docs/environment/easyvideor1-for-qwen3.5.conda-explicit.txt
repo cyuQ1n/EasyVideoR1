@@ -1,0 +1,40 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+# platform: linux-64
+# created-by: conda 24.9.2
+@EXPLICIT
+https://repo.anaconda.com/pkgs/main/linux-64/_libgcc_mutex-0.1-main.conda
+https://repo.anaconda.com/pkgs/main/linux-64/ca-certificates-2025.12.2-h06a4308_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/ld_impl_linux-64-2.44-h153f514_2.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libgomp-15.2.0-h4751f2c_7.conda
+https://repo.anaconda.com/pkgs/main/noarch/tzdata-2025c-he532380_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/_openmp_mutex-5.1-1_gnu.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libgcc-15.2.0-h69a1729_7.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libgcc-ng-15.2.0-h166f726_7.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libstdcxx-15.2.0-h39759b7_7.conda
+https://repo.anaconda.com/pkgs/main/linux-64/openssl-3.5.5-h1b28b03_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/xz-5.8.2-h448239c_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/bzip2-1.0.8-h5eee18b_6.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libexpat-2.7.4-h7354ed3_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libnsl-2.0.0-h5eee18b_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libstdcxx-ng-15.2.0-hc03a8fd_7.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libuuid-1.41.5-h5eee18b_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libzlib-1.3.1-hb25bd0a_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/ncurses-6.5-h7934f7d_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/pthread-stubs-0.3-h0ce48e5_1.conda
+https://repo.anaconda.com/pkgs/main/linux-64/xorg-libxau-1.0.12-h9b100fa_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/xorg-libxdmcp-1.1.5-h9b100fa_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/xorg-xorgproto-2024.1-h5eee18b_1.conda
+https://repo.anaconda.com/pkgs/main/linux-64/expat-2.7.4-h7354ed3_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libffi-3.4.4-h6a678d5_1.conda
+https://repo.anaconda.com/pkgs/main/linux-64/libxcb-1.17.0-h9b100fa_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/readline-8.3-hc2a1206_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/zlib-1.3.1-hb25bd0a_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/sqlite-3.51.1-he0a8d7e_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/xorg-libx11-1.8.12-h9b100fa_1.conda
+https://repo.anaconda.com/pkgs/main/linux-64/tk-8.6.15-h54e0aa7_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/python-3.11.14-h6fa692b_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/packaging-25.0-py311h06a4308_1.conda
+https://repo.anaconda.com/pkgs/main/linux-64/setuptools-80.10.2-py311h06a4308_0.conda
+https://repo.anaconda.com/pkgs/main/linux-64/wheel-0.46.3-py311h06a4308_0.conda
+https://repo.anaconda.com/pkgs/main/noarch/pip-26.0.1-pyhc872135_0.conda
