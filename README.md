@@ -11,7 +11,7 @@ In our pursuit of advancing video understanding through post-training of multimo
 -   2. Task-Aware Prompt and Reward Assignment System: **supports 10+ task types and their accuracy scoring/reward methods.** Specifically, EasyVideoR1 fully implements the following reward types by default: multiple choice, numerical, temporal grounding, spatial-temporal grounding, and open-ended QA. Prompt formatting is also available for additional task types including spatial grounding, tracking, OCR, boolean QA, math, and code generation.
 -   3. More flexible video-hyperparameter settings: **Video metadata support for precise frame processing**
 -   4. Advanced VLMs: supports **Qwen2-VL / Qwen2.5-VL / Qwen3-VL / Qwen3.5-VL** series vision-language models.
--   5. Rich RL Algorithms: inherited from [EasyR1](https://github.com/hiyouga/EasyR1), supports **GRPO, DAPO, GSPO, CISPO, Reinforce++, ReMax, RLOO** and more.
+-   5. Rich RL Algorithms: inherited from [EasyR1](https://github.com/hiyouga/EasyR1), supports **GRPO, DAPO, GSPO, CISPO, Reinforce++, ReMax, RLOO, GDPO** and more.
 ### Research-Friendly Interfaces for Algorithm Development
 -   1. Mixed-Modality Pipeline Adaptation: **supports joint Text-Image-Video training with optimized gradient flow.**
 -   2. A Lightweight Mix-policy Interface: **supports hybrid online-offline training.**

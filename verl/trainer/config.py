@@ -124,7 +124,9 @@ class AlgorithmConfig:
     lam: float = 1.0
     """lambda value for ppo gae advantage estimator"""
     adv_estimator: str = "grpo"
-    """advantage estimator, support `gae`, `grpo`, `reinforce_plus_plus`, `remax`, `rloo`"""
+    """advantage estimator, support `gae`, `grpo`, `gdpo`, `reinforce_plus_plus`, `remax`, `rloo`"""
+    gdpo_reward_keys: Tuple[str, ...] = ("accuracy", "format")
+    """reward metric keys for GDPO decoupled normalization. Each key is normalized independently then summed."""
     disable_kl: bool = False
     """disable reference model"""
     use_kl_loss: bool = False

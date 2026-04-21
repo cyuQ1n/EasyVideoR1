@@ -11,7 +11,7 @@
 -  2. 任务感知提示与奖励分配系统：**支持10+种任务类型及其准确率评分/奖励方法**。具体而言，EasyVideoR1默认完整实现了以下奖励类型：选择题、数值题、时序定位、时空定位、开放式问答。此外，提示词格式也已为以下额外任务类型准备就绪：空间定位、Tracking、OCR、布尔问答、数学和代码生成。
 -  3. 更灵活的视频超参数设置：支持视频元数据以实现精确的帧处理。
 -  4. 先进视觉语言模型：支持 **Qwen2-VL / Qwen2.5-VL / Qwen3-VL / Qwen3.5-VL** 系列视觉语言模型。
--  5. 丰富的强化学习算法：继承自 [EasyR1](https://github.com/hiyouga/EasyR1)，支持 **GRPO、DAPO、GSPO、CISPO、Reinforce++、ReMax、RLOO** 等多种算法。
+-  5. 丰富的强化学习算法：继承自 [EasyR1](https://github.com/hiyouga/EasyR1)，支持 **GRPO、DAPO、GSPO、CISPO、Reinforce++、ReMax、RLOO、GDPO** 等多种算法。
 ### 算法开发研究友好接口
 -  1. 混合模态流程适配：通过优化梯度流，**支持联合文本-图像-视频训练**。
 -  2. 轻量级混合策略接口：**支持在线-离线混合训练（mix policy）**。

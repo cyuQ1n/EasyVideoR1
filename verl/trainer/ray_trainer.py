@@ -136,8 +136,69 @@ def apply_kl_penalty(data: DataProto, kl_ctrl: KLController, kl_penalty="kl"):
     return data, metrics
 
 
-def compute_advantage(data: DataProto, adv_estimator: AdvantageEstimator, gamma: float = 1.0, lam: float = 1.0):
+def build_gdpo_reward_tensors(batch: DataProto, reward_metrics_raw: dict, gdpo_reward_keys: tuple[str, ...]) -> None:
+    """Build per-dimension token-level reward tensors for GDPO."""
+    response_length = torch.sum(batch.batch["response_mask"], dim=-1)
+    for key in gdpo_reward_keys:
+        values = reward_metrics_raw.get(key)
+        if values is None:
+            raise ValueError(
+                f"GDPO reward key '{key}' not found in reward metrics. "
+                f"Available keys: {list(reward_metrics_raw.keys())}."
+            )
+
+        if len(values) != len(batch):
+            raise ValueError(
+                f"GDPO reward key '{key}' length mismatch: expected {len(batch)} values, got {len(values)}."
+            )
+
+        dim_tensor = torch.zeros_like(batch.batch["token_level_scores"])
+        for i, value in enumerate(values):
+            if value is None:
+                raise ValueError(f"GDPO reward key '{key}' has None at sample index {i}.")
+            pos = int(response_length[i].item()) - 1
+            if pos >= 0:
+                dim_tensor[i, pos] = float(value)
+        batch.batch[f"token_level_scores_{key}"] = dim_tensor
+
+
+def compute_advantage(
+    data: DataProto,
+    adv_estimator: AdvantageEstimator,
+    gamma: float = 1.0,
+    lam: float = 1.0,
+    gdpo_reward_keys: tuple[str, ...] | None = None,
+):
     """Compute advantage estimates for policy optimization."""
+    if adv_estimator == AdvantageEstimator.GDPO:
+        if not gdpo_reward_keys:
+            raise ValueError("GDPO requires a non-empty `gdpo_reward_keys` configuration.")
+
+        response_mask = data.batch["response_mask"]
+        index = data.non_tensor_batch["uid"]
+
+        normalized_advantages = []
+        for key in gdpo_reward_keys:
+            tensor_key = f"token_level_scores_{key}"
+            if tensor_key not in data.batch:
+                raise KeyError(
+                    f"Missing `{tensor_key}` in batch for GDPO. "
+                    "Make sure reward metrics were converted into per-dimension token-level tensors."
+                )
+            norm_score, _ = compute_advantage_return(
+                AdvantageEstimator.GRPO,
+                token_level_rewards=data.batch[tensor_key],
+                response_mask=response_mask,
+                index=index,
+            )
+            normalized_advantages.append(norm_score)
+
+        combined_advantage = sum(normalized_advantages)
+        advantages = VF.masked_whiten(combined_advantage, response_mask) * response_mask
+        data.batch["advantages"] = advantages
+        data.batch["returns"] = advantages
+        return data
+
     adv_inputs = {
         "token_level_rewards": data.batch["token_level_rewards"],
         "response_mask": data.batch["response_mask"],
@@ -232,10 +293,10 @@ class RayPPOTrainer:
                 )
 
         if (
-            config.algorithm.adv_estimator in (AdvantageEstimator.GRPO, AdvantageEstimator.RLOO)
+            config.algorithm.adv_estimator in (AdvantageEstimator.GRPO, AdvantageEstimator.RLOO, AdvantageEstimator.GDPO)
             and config.worker.rollout.n == 1
         ):
-            raise ValueError("GRPO and RLOO algorithm need `config.worker.rollout.n > 1`.")
+            raise ValueError("GRPO, RLOO and GDPO algorithm need `config.worker.rollout.n > 1`.")
 
         if config.trainer.max_steps is not None:
             self.training_steps = config.trainer.max_steps
@@ -740,6 +801,8 @@ class RayPPOTrainer:
                 else:
                     reward_tensor, reward_metrics = cached_filter_reward
                 new_batch.batch["token_level_scores"] = reward_tensor
+                if self.config.algorithm.adv_estimator == AdvantageEstimator.GDPO:
+                    build_gdpo_reward_tensors(new_batch, reward_metrics, self.config.algorithm.gdpo_reward_keys)
                 for k, v in reward_metrics.items():
                     all_metrics[k].extend(v)
 
@@ -859,6 +922,8 @@ class RayPPOTrainer:
                         # get token level scores asynchronously
                         reward_tensor, reward_metrics = ray.get(reward_ref)
                         batch.batch["token_level_scores"] = reward_tensor
+                        if self.config.algorithm.adv_estimator == AdvantageEstimator.GDPO:
+                            build_gdpo_reward_tensors(batch, reward_metrics, self.config.algorithm.gdpo_reward_keys)
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
 
@@ -876,6 +941,7 @@ class RayPPOTrainer:
                         adv_estimator=self.config.algorithm.adv_estimator,
                         gamma=self.config.algorithm.gamma,
                         lam=self.config.algorithm.lam,
+                        gdpo_reward_keys=self.config.algorithm.gdpo_reward_keys,
                     )
 
                 # update critic
