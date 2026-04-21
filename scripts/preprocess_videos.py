@@ -12,19 +12,15 @@ import argparse
 import hashlib
 import json
 import os
-import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
 
 import torch
 from tqdm import tqdm
 
 from verl.utils.multimodal_contract import process_video
+
 
 PREPROCESS_VERSION = "qwen3vl_patch16_v1"
 
@@ -283,7 +279,9 @@ Examples:
     )
     parser.add_argument("--input_file", type=str, required=True, help="Input JSON/JSONL file path")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save preprocessed `.pt` files")
-    parser.add_argument("--output_file", type=str, required=True, help="Output JSONL file path with preprocessed references")
+    parser.add_argument(
+        "--output_file", type=str, required=True, help="Output JSONL file path with preprocessed references"
+    )
     parser.add_argument("--video_fps", type=float, default=2.0, help="Video sampling FPS (default: 2.0)")
     parser.add_argument("--video_max_frames", type=int, default=128, help="Maximum number of frames (default: 128)")
     parser.add_argument("--video_min_pixels", type=int, default=4 * 32 * 32, help="Minimum pixels (default: 4096)")
