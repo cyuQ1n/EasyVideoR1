@@ -214,19 +214,22 @@ def _get_input_embeds(
             inputs_embeds += 0.0 * emb.mean()
 
     # for image-video mixed training
-    
+
     if pixel_values is not None and pixel_values_videos is None:
         config = model.config.vision_config
         patch_dim = config.in_channels * config.temporal_patch_size * config.patch_size**2
 
-        _video_grid_thw = video_grid_thw if (video_grid_thw is not None) \
+        _video_grid_thw = (
+            video_grid_thw
+            if (video_grid_thw is not None)
             else torch.tensor([[2, 4, 4]], dtype=torch.long, device=inputs_embeds.device)
+        )
         _T, _H, _W = _video_grid_thw[0].tolist()
         _n_tokens = int(_T * _H * _W)
 
-        _dummy_video_pixels = torch.zeros((_n_tokens, patch_dim),
-                                        dtype=inputs_embeds.dtype,
-                                        device=inputs_embeds.device)
+        _dummy_video_pixels = torch.zeros(
+            (_n_tokens, patch_dim), dtype=inputs_embeds.dtype, device=inputs_embeds.device
+        )
 
         _video_embeds, _video_deepstack = model.visual(_dummy_video_pixels, grid_thw=_video_grid_thw)
         inputs_embeds = inputs_embeds + 0.0 * _video_embeds.mean()
@@ -238,14 +241,17 @@ def _get_input_embeds(
         config = model.config.vision_config
         patch_dim = config.in_channels * config.temporal_patch_size * config.patch_size**2
 
-        _image_grid_thw = image_grid_thw if (image_grid_thw is not None) \
+        _image_grid_thw = (
+            image_grid_thw
+            if (image_grid_thw is not None)
             else torch.tensor([[1, 4, 4]], dtype=torch.long, device=inputs_embeds.device)
+        )
         _T, _H, _W = _image_grid_thw[0].tolist()
         _n_tokens = int(_T * _H * _W)
 
-        _dummy_image_pixels = torch.zeros((_n_tokens, patch_dim),
-                                        dtype=inputs_embeds.dtype,
-                                        device=inputs_embeds.device)
+        _dummy_image_pixels = torch.zeros(
+            (_n_tokens, patch_dim), dtype=inputs_embeds.dtype, device=inputs_embeds.device
+        )
 
         _image_embeds, _image_deepstack = model.visual(_dummy_image_pixels, grid_thw=_image_grid_thw)
         inputs_embeds = inputs_embeds + 0.0 * _image_embeds.mean()

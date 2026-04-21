@@ -1,28 +1,46 @@
-# EasyVideoR1
+# EasyVideoR1: Easier RL for Video Understanding
 
 [English](README.md)
 
-基于 [EasyR1](https://github.com/hiyouga/EasyR1) 修改，支持 **Qwen3-VL** 系列模型进行视频理解强化学习训练。
+在推进多模态大语言模型后训练以提升视频理解能力的过程中，我们发现现有的强化学习框架在视频理解场景中适配的不太好。因此，我们构建了EasyVideoR1来实现相关优化，具体内容已在[report](https://github.com/cyuQ1n/EasyVideoR1/blob/main/EasyVideoR1-report.pdf)中概述。据我们所知，这应该是迄今为止最适合视频理解RL研究的代码仓库。它支持广泛的视频理解任务，融入了适合社区进行后训练研究和探索的接口（off-policy与on-policy混合训练、图像-视频联合训练），通过系统化设计提升了视频强化学习的训练效率，并提供了高效、全面且与已对齐准确率的视频理解评测框架。我们希望这个仓库能够激发多模态社区对视频理解研究的热情。我们也呼吁社区研究人员加入我们，共同维护这个代码库，携手打造最全面、最适合学术探索的视频理解RL仓库。我们欢迎并会认真考虑合并任何有价值的pull request。
 
-本项目基于 EasyR1 和 [veRL](https://github.com/volcengine/verl) 的优秀工作。感谢所有作者提供如此高性能的强化学习训练框架。
+## 📍 特性
 
-## 特性
+### 视频友好的RL管线优化
+-  1. 离线预处理与基于缓存的训练：rollout生成加速1.5倍，log-probability计算加速2.9倍，**整体单步时间和token吞吐量均实现1.47倍加速**。
+-  2. 任务感知提示与奖励分配系统：**支持10+种任务类型及其准确率评分/奖励方法**。具体而言，EasyVideoR1默认完整实现了以下奖励类型：选择题、数值题、时序定位、时空定位、开放式问答。此外，提示词格式也已为以下额外任务类型准备就绪：空间定位、Tracking、OCR、布尔问答、数学和代码生成。
+-  3. 更灵活的视频超参数设置：支持视频元数据以实现精确的帧处理。
+-  4. 先进视觉语言模型：支持 **Qwen2-VL / Qwen2.5-VL / Qwen3-VL / Qwen3.5-VL** 系列视觉语言模型。
+-  5. 丰富的强化学习算法：继承自 [EasyR1](https://github.com/hiyouga/EasyR1)，支持 **GRPO、DAPO、GSPO、CISPO、Reinforce++、ReMax、RLOO** 等多种算法。
+### 算法开发研究友好接口
+-  1. 混合模态流程适配：通过优化梯度流，**支持联合文本-图像-视频训练**。
+-  2. 轻量级混合策略接口：**支持在线-离线混合训练（mix policy）**。
+### 快速全面的评估框架
+-  1. 异步推理：预计算帧缓存与异步流水线结合AsyncLLMEngine，确保GPU在每个调度步骤都保持高效：缓存I/O持续供给数据，异步队列消除批次边界停滞，分块预填充防止任何单一长序列独占计算资源。
+-  2. 全面且可复现的评估：支持22+个视频理解基准测试。
+-  3. 精度对齐：对于Qwen3-VL系列模型，**评测结果与官方精度对齐（偏差在1%以内）**。
+      
+## 🏆 性能
 
-- 支持 **Qwen3-VL** 系列视觉语言模型
-- **图像-视频混合训练**，优化梯度流
-- 图像和视频分辨率独立控制
-- 视频元数据支持，精确帧处理
-- 默认示例 prompt/reward 栈面向视频理解任务
-  - 默认 reward 已完整实现：多选题、数值计算、时间定位、时空定位、开放式问答
-  - 额外还提供了空间定位、目标追踪、OCR、布尔问答、数学、代码生成等 prompt 模板分支，但默认 reward 脚本尚未完整实现这些任务
+使用 EasyVideoR1 训练后，在 10 个视频理解基准测试上相比 Qwen3-VL-8B 基座模型取得了一致的提升，平均准确率提升 **+2.3%**。
 
-## 安装
+<div align="center">
+  <img src="assets/benchmark.png" alt="基准测试结果" width="90%">
+</div>
+
+视频预处理缓存机制相比实时解码，将单步训练速度提升 **1.47 倍**，且不影响精度。
+
+<div align="center">
+  <img src="assets/efficiency.png" alt="训练效率" width="90%">
+</div>
+
+## 📐 安装
 
 ### 第一步：创建 Conda 环境
 
 ```bash
-conda create -n easyvideorl python=3.11
-conda activate easyvideorl
+conda create -n easyvideor1 python=3.11
+conda activate easyvideor1
 ```
 
 ### 第二步：克隆并安装
@@ -39,96 +57,128 @@ pip install -e .
 pip install flash-attn==2.8.3 --no-build-isolation
 ```
 
-## 快速开始
+## 🚀 快速开始
 
-### 1. 准备数据集
+以下是最简 3 步启动训练的流程。
 
-数据集可以是 JSON 或 JSONL，字段结构如下：
+### 第一步：准备数据
+
+创建 JSON/JSONL 文件，每条数据格式如下：
 
 ```json
 {
-  "problem": "你的问题",
-  "answer": "标准答案",
+  "problem": "这个视频中发生了什么？",
+  "answer": "一只猫跳上了桌子。",
   "videos": ["path/to/video.mp4"],
   "data_type": "video",
-  "problem_type": "multiple choice"
+  "problem_type": "open-ended"
 }
 ```
 
-如果使用默认示例链路
-(`examples/videorl/format_prompt/unified.jinja` + `examples/videorl/reward_function/video_reward.py`)，
-请严格使用以下 `problem_type` 字符串：
-- `multiple choice`
-- `numerical`
-- `temporal grounding`
-- `spatial-temporal grounding`
-- `open-ended`
+多选题需要额外添加 `options` 字段：
 
-其中，prompt 模板还包含 `regression`、`spatial grounding`、`tracking`、`ocr`、`boolean`、`math`、`code`、`svg-code`、`html-code`、`llava` 等分支，但默认 reward 脚本暂未完整支持这些任务类型。
+```json
+{
+  "problem": "视频中汽车是什么颜色的？",
+  "answer": "B",
+  "videos": ["path/to/video.mp4"],
+  "data_type": "video",
+  "problem_type": "multiple choice",
+  "options": ["A. 红色", "B. 蓝色", "C. 绿色", "D. 白色"]
+}
+```
 
-### 2. 配置训练
+> 完整的 `problem_type` 列表和数据字段说明请参考 [docs/config_parameters.md](docs/config_parameters.md)。
 
-编辑 `examples/videorl/video_rl.yaml`：
+### 第二步：编辑配置
+
+复制并编辑示例配置：
+
+```bash
+cp examples/video_rl/video_rl.yaml my_config.yaml
+```
+
+至少修改以下字段：
 
 ```yaml
 data:
-  train_files: /path/to/your/train.json
+  train_files: /path/to/your/train.jsonl
   val_files: /path/to/your/val.json
-  image_dir: /path/to/your/data/root
-  video_fps: 2.0
-  video_max_frames: 64
-  max_prompt_length: 16384
-  max_response_length: 4096
-  # 分辨率设置
-  image_max_pixels: 1048576
-  video_max_pixels: 262144
 
 worker:
   actor:
     model:
       model_path: Qwen/Qwen3-VL-8B-Instruct
-    # ... 其他设置
 
 trainer:
-  project_name: your_project
-  experiment_name: your_experiment
-  save_checkpoint_path: /path/to/checkpoints
+  experiment_name: my_first_run
+  save_checkpoint_path: ./checkpoints/my_first_run
 ```
 
-### 3. 开始训练
+### 第三步：启动训练
 
 ```bash
-bash examples/videorl/run_video_rl.sh
+# 单机训练（8 GPU）
+bash examples/video_rl/run_video_rl.sh
+
+# 多机训练：在每个节点上设置 WORLD_SIZE、RANK、MASTER_ADDR
+WORLD_SIZE=2 RANK=0 MASTER_ADDR=<主节点IP> bash examples/video_rl/run_video_rl.sh  # 主节点
+WORLD_SIZE=2 RANK=1 MASTER_ADDR=<主节点IP> bash examples/video_rl/run_video_rl.sh  # 工作节点
 ```
 
-### 4. 合并检查点
+训练完成后，将 FSDP 检查点合并为 Hugging Face 格式：
 
 ```bash
-python3 scripts/model_merger.py --local_dir checkpoints/your_exp/global_step_xxx/actor
+python3 scripts/model_merger.py --local_dir checkpoints/my_first_run/global_step_100/actor
 ```
 
-## 配置参数
+## 📂 项目结构
 
-### 数据配置
+```
+EasyVideoR1/
+├── verl/                       # 核心 RL 训练框架
+│   ├── trainer/                # 训练循环 & Ray 编排
+│   ├── workers/                # Actor、rollout、reward、critic workers
+│   ├── models/                 # Qwen2-VL / Qwen2.5-VL / Qwen3-VL 模型支持
+│   └── utils/                  # 数据集、分词、FSDP 工具
+├── examples/
+│   ├── video_rl/               # 纯视频 RL 管线（单文件 reward）
+│   └── unified_rl/             # 图文视频混合管线（模块化 reward）
+├── eval/                       # 评测工具集（25+ 基准测试）
+├── scripts/                    # 检查点合并、视频预处理
+└── docs/                       # 详细文档
+```
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `video_fps` | 视频采样帧率 | 2.0 |
-| `video_max_frames` | 每个视频最大帧数 | 128 |
-| `image_max_pixels` | 图像最大像素数 | 1048576 |
-| `video_max_pixels` | 视频最大像素数 | 262144 |
+## 🔧 示例管线
 
-### Worker 配置
+### Video RL (`examples/video_rl/`)
 
-| 参数 | 说明 |
+单文件自包含的纯视频 RL 训练管线。reward 函数 (`video_reward.py`) 在一个文件中处理所有任务类型，使用 `accuracy * 0.9 + format * 0.1` 的简单加权公式。
+
+```bash
+bash examples/video_rl/run_video_rl.sh
+```
+
+### Unified RL (`examples/unified_rl/`)
+
+模块化的图文视频混合训练管线。reward 函数根据每条样本的 `problem_type` 自动路由到对应的任务模块（多选题、grounding、数学等），各模块独立评分。
+
+```bash
+bash examples/unified_rl/run_unified_rl.sh
+```
+
+## 📖 详细文档
+
+| 文档 | 说明 |
 |------|------|
-| `worker.rollout.tensor_parallel_size` | vLLM 推理的张量并行度 |
-| `worker.rollout.gpu_memory_utilization` | vLLM 的 GPU 显存占用比例 |
-| `worker.actor.fsdp.enable_full_shard` | 启用 FSDP 完全分片 |
+| [配置参数参考](docs/config_parameters.md) | 所有 YAML 配置选项的完整说明 |
+| [RL 训练深度解析](docs/rl_training_deep_dive.md) | GRPO 算法、系统架构、训练流程 |
+| [Qwen3-VL 多模态处理](docs/qwen3_vl_multimodal_processing.md) | 视觉语言模型内部机制 |
+| [Token 计算](docs/token_calculation.md) | Token 计数与显存估算 |
 
-## 常见问题
+## ❓ 常见问题
 
-**问：Image features and image tokens do not match**
+**问：`Image features and image tokens do not match`**
 
 答：增大 `data.max_prompt_length` 或减小 `data.max_pixels`。
 
@@ -138,28 +188,32 @@ python3 scripts/model_merger.py --local_dir checkpoints/your_exp/global_step_xxx
 
 **问：多节点训练卡住**
 
-答：使用 `ray status` 检查 Ray 集群状态，确保所有节点已连接。
+答：使用 `ray status` 检查集群状态，确保所有节点已连接且 NCCL 端口已开放。
 
-## 引用
+## 🙏 致谢
 
-如果使用本项目，请引用原版 EasyR1 和 veRL：
+本项目基于以下优秀工作构建：
+- [EasyR1](https://github.com/hiyouga/EasyR1) — 高效可扩展的 RL 训练框架
+- [veRL](https://github.com/volcengine/verl) — 高性能 RL 与 HybridEngine
+- [OneThinker](https://github.com/tulerfeng/OneThinker) - 图和视频的联合RL框架
+
+## 📄 引用
+
+如果使用本项目，请引用 EasyR1 和 veRL：
 
 ```bibtex
 @misc{zheng2025easyr1,
-  title        = {EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework},
-  author       = {Yaowei Zheng, Junting Lu, Shenzhi Wang, Zhangchi Feng, Dongdong Kuang, Yuwen Xiong},
-  howpublished = {\url{https://github.com/hiyouga/EasyR1}},
-  year         = {2025}
-}
-
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and others},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
+  title        = {EasyVideoR1: Easier RL for Video Understanding},
+  author       = {},
+  howpublished = {\url{https://github.com/cyuQ1n/EasyVideoR1}},
+  year         = {2026}
 }
 ```
 
-## 许可证
+## 📜 许可证
 
 本项目遵循与 [EasyR1](https://github.com/hiyouga/EasyR1) 相同的许可证。
+
+## ☎️ 我们正在招聘！
+
+我们（京东探索研究院多模态理解研究部）正在招聘多模态大模型研究员和实习生！如果你有顶级会议/期刊论文发表，并对视频理解和视觉语言模型（VLMs）充满热情，请将简历发送至：siqingyi.phoebus@jd.com。期待你的加入！

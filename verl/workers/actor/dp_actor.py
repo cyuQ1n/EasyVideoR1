@@ -198,7 +198,9 @@ class DataParallelPPOActor(BasePPOActor):
             if self.config.max_token_len_per_gpu is not None:
                 max_token_len = self.config.max_token_len_per_gpu
             else:
-                max_token_len = self.config.micro_batch_size_per_device_for_experience * data.batch["input_ids"].size(-1)
+                max_token_len = self.config.micro_batch_size_per_device_for_experience * data.batch["input_ids"].size(
+                    -1
+                )
             micro_batches, batch_idx_list = prepare_dynamic_batch(data, max_token_len=max_token_len)
         else:
             micro_batches = data.split(self.config.micro_batch_size_per_device_for_experience)

@@ -53,7 +53,7 @@ LOG_FILE="${LOG_DIR}/verl_rank${RANK:-0}_${TIMESTAMP}.log"
 # =============================================================================
 # Model & Data Configuration
 # =============================================================================
-CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/videorl/video_rl.yaml"}
+CONFIG_PATH=${CONFIG_PATH:-"${PROJECT_DIR}/examples/video_rl/video_rl.yaml"}
 MODEL_PATH=${MODEL_PATH:-"Qwen/Qwen3-VL-8B-Instruct"}
 TRAIN_DATA=${TRAIN_DATA:-"/path/to/your/train_data.jsonl"}
 VAL_DATA=${VAL_DATA:-"/path/to/your/val_data.json"}
@@ -62,8 +62,8 @@ SAVE_CHECKPOINT_PATH=${SAVE_CHECKPOINT_PATH:-"${PROJECT_DIR}/checkpoints/video_r
 FIND_LAST_CHECKPOINT=${FIND_LAST_CHECKPOINT:-true}
 
 # Prompt template & Reward function paths
-FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/videorl/format_prompt/unified.jinja"}
-REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/videorl/reward_function/video_reward.py:compute_score"}
+FORMAT_PROMPT=${FORMAT_PROMPT:-"${PROJECT_DIR}/examples/video_rl/format_prompt/unified.jinja"}
+REWARD_FUNCTION=${REWARD_FUNCTION:-"${PROJECT_DIR}/examples/video_rl/reward_function/video_reward.py:compute_score"}
 
 # =============================================================================
 # Print Cluster Info

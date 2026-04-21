@@ -1,4 +1,4 @@
-# EasyVideoR1 配置参数说明（基于源码）
+# EasyVideoR1 配置参数说明
 
 本文档基于 EasyVideoR1 源码中的 dataclass 定义，总结各类配置参数，以及这些参数在代码中的使用与串联方式。
 

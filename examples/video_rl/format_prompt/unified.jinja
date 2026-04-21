@@ -1,0 +1,107 @@
+{#- =========================================================
+   Video RL Prompt Template — exp_2 (reasoning-first)
+
+   Design goals:
+   - Encourage the model to reason BEFORE giving an answer.
+   - Use <answer>...</answer> tags for the final answer only.
+   - Do NOT show concrete answer examples for simple tasks
+     (MC, numerical, boolean, etc.) to avoid teaching the model
+     that a bare tag is sufficient.
+   - Keep JSON format examples for grounding/tracking tasks
+     because the structure is complex and needs guidance.
+   ========================================================= -#}
+{%- if problem is defined -%}
+{%- set question = problem -%}
+{%- elif content is defined -%}
+{%- set question = content -%}
+{%- else -%}
+{{ 1 / 0 }}
+{%- endif -%}
+{%- if problem_type is defined -%}
+{%- set ptype = problem_type | lower | trim -%}
+{%- else -%}
+{%- set ptype = "open-ended" -%}
+{%- endif -%}
+{%- set opts = options if options is defined and options is iterable and options | length > 0 else [] -%}
+{%- if ptype == "multiple choice" and opts | length > 0 -%}
+{%- set full_question = question | trim ~ "\nOptions:\n" ~ opts | join("\n") -%}
+{%- else -%}
+{%- set full_question = question | trim -%}
+{%- endif -%}
+{%- if ptype == "multiple choice" %}
+Watch the video carefully, then answer the following multiple-choice question.
+First, briefly explain your reasoning based on what you observed in the video.
+Then, provide the letter of the correct option inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == "numerical" or ptype == "regression" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the video.
+Then, provide your numerical answer inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == "boolean" or ptype == "binary classification" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the video.
+Then, provide Yes or No inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == "ocr" %}
+Watch the video carefully, then answer the following question.
+First, briefly describe what you see in the relevant part of the video.
+Then, provide the recognized text inside <answer> tags.
+Question: {{ full_question }}
+{%- elif ptype == "math" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning and show your work.
+Then, provide your final answer inside <answer> tags. If it is multiple choice, provide the option letter; otherwise provide the numerical value.
+Question: {{ full_question }}
+{%- elif ptype == "temporal grounding" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning about when the event occurs.
+Then, provide the time span in seconds as a JSON object inside <answer> tags.
+Format: {"time": [start_seconds, end_seconds]}
+Question: {{ full_question }}
+{%- elif ptype == "spatial-temporal grounding" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning about when and where the target appears.
+Then, provide the time span and bounding boxes as a JSON object inside <answer> tags.
+Format: {"time": [start, end], "boxes": {"second": [x1, y1, x2, y2], ...}}
+You MUST output one bounding box for every integer second within the time span (inclusive).
+Question: {{ full_question }}
+{%- elif ptype == "spatial grounding" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning about where the target is located.
+Then, provide the bounding box as a JSON object inside <answer> tags.
+Format: {"boxes": [x1, y1, x2, y2]}
+Question: {{ full_question }}
+{%- elif ptype == "tracking" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning about the target's movement.
+Then, provide the bounding boxes as a JSON object inside <answer> tags.
+Format: {"boxes": {"second": [x1, y1, x2, y2], ...}}
+You MUST output one bounding box for every integer second in the track, up to 32 seconds.
+Question: {{ full_question }}
+{%- elif ptype == "code" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete Python code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == "svg-code" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete SVG code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == "html-code" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your approach.
+Then, provide the complete HTML code inside <answer> tags. Do not use Markdown fences.
+Question: {{ full_question }}
+{%- elif ptype == "llava" %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning based on what you observed.
+Then, provide your choice (Response 1, Response 2, or Tie) inside <answer> tags.
+Question: {{ full_question }}
+{%- else %}
+Watch the video carefully, then answer the following question.
+First, briefly explain your reasoning based on what you observed in the video.
+Then, provide your final answer inside <answer> tags.
+Question: {{ full_question }}
+{%- endif %}

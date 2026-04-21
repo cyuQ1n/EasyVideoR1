@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 QUESTION_TEMPLATE = (
     "{Question}\n"
     "Please answer this question based on the visual content."
@@ -69,26 +70,26 @@ TYPE_TEMPLATE = {
     ),
     "temporal grounding": (
         "Please provide only the time span in seconds as JSON within the <answer>...</answer> tags.\n"
-        "Example:\n<answer>{\"time\": [12.3, 25.7]}</answer>"
+        'Example:\n<answer>{"time": [12.3, 25.7]}</answer>'
     ),
     "spatial grounding": (
         "Please provide only the bounding box as JSON with key 'boxes' within the <answer>...</answer> tags.\n"
-        "Example:\n<answer>{\"boxes\": [35, 227, 437, 932]}</answer>"
+        'Example:\n<answer>{"boxes": [35, 227, 437, 932]}</answer>'
     ),
     "spatial-temporal grounding": (
         "Please provide only the time span in seconds and bounding boxes as JSON within the <answer>...</answer> tags.\n"
         "You MUST output one bounding box for every integer second within the given time span (inclusive).\n"
         "Example:\n"
-        "<answer>{\"time\": [8.125, 13.483], \"boxes\": {\"9\": [317, 422, 582, 997], "
-        "\"10\": [332, 175, 442, 369], \"11\": [340, 180, 450, 370]}}</answer>\n"
+        '<answer>{"time": [8.125, 13.483], "boxes": {"9": [317, 422, 582, 997], '
+        '"10": [332, 175, 442, 369], "11": [340, 180, 450, 370]}}</answer>\n'
         "Note: Each key in 'boxes' must be an integer second within the span, and its value must be a 4-number bounding box [x1, y1, x2, y2]."
     ),
     "tracking": (
         "Please track the target object throughout the video and provide one bounding box per second, "
         "ONLY up to 32 seconds, within the <answer>...</answer> tags.\n"
         "Example:\n"
-        "<answer>{\"boxes\": {\"1\": [405, 230, 654, 463], \"2\": [435, 223, 678, 446], ..., "
-        "\"32\": [415, 203, 691, 487]}}</answer>\n"
+        '<answer>{"boxes": {"1": [405, 230, 654, 463], "2": [435, 223, 678, 446], ..., '
+        '"32": [415, 203, 691, 487]}}</answer>\n'
         "Note: Each key in 'boxes' must correspond to a second (1, 2, 3, ..., 32) and contain a 4-number bounding box [x1, y1, x2, y2]."
     ),
     "segmentation_image": (
@@ -99,8 +100,8 @@ TYPE_TEMPLATE = {
         "pixels INSIDE the box when safe; otherwise place them just outside on obvious background. "
         "Negatives must NEVER be on the object or on its boundary.\n"
         "Example:\n"
-        "<answer>{\"boxes\": [x1, y1, x2, y2], \"positive_points\": [[x,y],[x,y],[x,y]], "
-        "\"negative_points\": [[x,y],[x,y],[x,y]]}</answer>"
+        '<answer>{"boxes": [x1, y1, x2, y2], "positive_points": [[x,y],[x,y],[x,y]], '
+        '"negative_points": [[x,y],[x,y],[x,y]]}</answer>'
     ),
     "segmentation_video": (
         "This task prepares inputs for video object segmentation with a specialized model (e.g., SAM2).\n"
@@ -111,8 +112,8 @@ TYPE_TEMPLATE = {
         "pixels INSIDE the box when safe; otherwise place them just outside on obvious background. "
         "Negatives must NEVER be on the object or on its boundary.\n"
         "Example:\n"
-        "<answer>{\"time\": <time_in_seconds>, \"boxes\": [x1, y1, x2, y2], "
-        "\"positive_points\": [[x,y],[x,y],[x,y]], \"negative_points\": [[x,y],[x,y],[x,y]]}</answer>"
+        '<answer>{"time": <time_in_seconds>, "boxes": [x1, y1, x2, y2], '
+        '"positive_points": [[x,y],[x,y],[x,y]], "negative_points": [[x,y],[x,y],[x,y]]}</answer>'
     ),
     # ===== 新增任务类型 =====
     "code": (
@@ -129,8 +130,8 @@ TYPE_TEMPLATE = {
         "Please provide only the complete SVG code within the <answer>...</answer> tags.\n"
         "Example:\n"
         "<answer>\n"
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\">\n"
-        "  <circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"blue\"/>\n"
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n'
+        '  <circle cx="50" cy="50" r="40" fill="blue"/>\n'
         "</svg>\n"
         "</answer>"
     ),
@@ -146,12 +147,10 @@ TYPE_TEMPLATE = {
         "</answer>"
     ),
     "boolean": (
-        "Please provide only 'Yes' or 'No' within the <answer>...</answer> tags.\n"
-        "Example:\n<answer>Yes</answer>"
+        "Please provide only 'Yes' or 'No' within the <answer>...</answer> tags.\nExample:\n<answer>Yes</answer>"
     ),
     "binary classification": (
-        "Please provide only 'Yes' or 'No' within the <answer>...</answer> tags.\n"
-        "Example:\n<answer>Yes</answer>"
+        "Please provide only 'Yes' or 'No' within the <answer>...</answer> tags.\nExample:\n<answer>Yes</answer>"
     ),
     "llava": (
         "Please compare the two responses and determine which one is better.\n"

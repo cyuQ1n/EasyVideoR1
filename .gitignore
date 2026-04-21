@@ -201,3 +201,8 @@ preprocessed_videos/
 **/__pycache__/
 **/*.py[cod]
 *$py.class
+
+# Local example worktrees and generated caches
+examples/ourmodel_0403/
+examples/**/__pycache__/
+verl/**/__pycache__/
