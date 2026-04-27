@@ -1,5 +1,10 @@
 # EasyVideoR1: Easier RL for Video Understanding
 
+
+[![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXX-b31b1b.svg?logo=arxiv)](https://arxiv.org/abs/2604.16893)
+[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-yellow)](https://huggingface.co/papers/2604.16893)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://makeapullrequest.com)
+
 [中文](README_zh.md)
 
 In our pursuit of advancing video understanding through post-training of multimodal LLMs, we found that existing RL frameworks were not particularly well-suited for video understanding scenarios. Therefore, we built **EasyVideoR1** to implement relevant optimizations, which we have outlined in this [report](https://github.com/cyuQ1n/EasyVideoR1/blob/main/EasyVideoR1-report.pdf). To the best of our knowledge, this should be the most suitable code repository for research on RL post-training for video understanding at the time of this report's release. It supports a wide range of video understanding tasks, incorporates research-friendly interfaces (mixed off-policy and on-policy training, joint image-video training), enhances training efficiency for video RL through systematic design, and provides an efficient, comprehensive, and accuracy-aligned evaluation framework. We hope this repository can inspire enthusiasm within the multimodal community for video understanding research. We also call upon community researchers to join us in maintaining this codebase, working together to create the most comprehensive and research-friendly repository for video understanding. We welcome and will consider merging any valuable pull requests.
