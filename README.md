@@ -1,9 +1,15 @@
+<div align="center">
+       
 # EasyVideoR1: Easier RL for Video Understanding
 
 
-[![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXX-b31b1b.svg?logo=arxiv)](https://arxiv.org/abs/2604.16893)
+<img src="https://img.shields.io/github/stars/cyuQ1n/EasyVideoR1.svg?style=social">
+<a href="https://github.com/cyuQ1n/EasyVideoR1/pulls"><img src="https://img.shields.io/badge/PRs-Welcome-red"></a>
+<a href="https://github.com/cyuQ1n/EasyVideoR1/commits/main"><img src="https://img.shields.io/github/last-commit/cyuQ1n/EasyVideoR1?color=blue"></a>
+
+[![arXiv](https://img.shields.io/badge/arXiv-2604.16893-b31b1b.svg?logo=arxiv)](https://arxiv.org/abs/2604.16893)
 [![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-yellow)](https://huggingface.co/papers/2604.16893)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://makeapullrequest.com)
+</div>
 
 [中文](README_zh.md)
 
