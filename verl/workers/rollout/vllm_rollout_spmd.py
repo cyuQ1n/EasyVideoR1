@@ -150,7 +150,6 @@ class vLLMRollout(BaseRollout):
 
         engine_kwargs = {}
         if processor is not None:  # only VLMs have processor
-            engine_kwargs["disable_mm_preprocessor_cache"] = True
             if config.limit_images:
                 engine_kwargs["limit_mm_per_prompt"] = {"image": config.limit_images, "video": 1}
 
@@ -193,18 +192,30 @@ class vLLMRollout(BaseRollout):
     @contextmanager
     def update_sampling_params(self, **kwargs):
         # update sampling params
-        old_sampling_params_args = {}
+        old_sampling_params = self.sampling_params
         if kwargs:
-            for key, value in kwargs.items():
-                if hasattr(self.sampling_params, key):
-                    old_value = getattr(self.sampling_params, key)
-                    old_sampling_params_args[key] = old_value
-                    setattr(self.sampling_params, key, value)
+            # vLLM 0.17+: SamplingParams is a msgspec.Struct with read-only properties
+            # Get the valid constructor fields
+            struct_fields = getattr(self.sampling_params, "__struct_fields__", None)
+            if struct_fields is not None:
+                # msgspec.Struct: rebuild with current values + overrides
+                current_args = {}
+                for field in struct_fields:
+                    if not field.startswith("_"):
+                        current_args[field] = getattr(self.sampling_params, field)
+                for key, value in kwargs.items():
+                    if key in current_args:
+                        current_args[key] = value
+                self.sampling_params = SamplingParams(**current_args)
+            else:
+                # Older vLLM: use setattr directly
+                for key, value in kwargs.items():
+                    if hasattr(self.sampling_params, key):
+                        setattr(self.sampling_params, key, value)
 
         yield
         # roll back to previous sampling params
-        for key, value in old_sampling_params_args.items():
-            setattr(self.sampling_params, key, value)
+        self.sampling_params = old_sampling_params
 
     @torch.no_grad()
     def generate_sequences(self, prompts: DataProto) -> DataProto:

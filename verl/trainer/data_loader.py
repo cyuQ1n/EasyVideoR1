@@ -17,13 +17,27 @@ from typing import Optional
 import torch
 from torch.utils.data import RandomSampler, SequentialSampler
 from torchdata.stateful_dataloader import StatefulDataLoader
-from transformers import PreTrainedTokenizer, ProcessorMixin
+from transformers import AutoConfig, PreTrainedTokenizer, ProcessorMixin
 
 from ..utils.dataset import RLHFDataset, collate_fn
 from .config import DataConfig
 
 
-def create_dataloader(config: DataConfig, tokenizer: PreTrainedTokenizer, processor: Optional[ProcessorMixin]) -> None:
+def create_dataloader(
+    config: DataConfig,
+    tokenizer: PreTrainedTokenizer,
+    processor: Optional[ProcessorMixin],
+    model_path: Optional[str] = None,
+) -> None:
+    # Auto-detect model_type from model config for proper position_ids routing
+    model_type = None
+    if model_path is not None:
+        try:
+            auto_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+            model_type = getattr(auto_config, "model_type", None)
+        except Exception:
+            pass
+
     train_dataset = RLHFDataset(
         data_path=config.train_files,
         tokenizer=tokenizer,
@@ -48,6 +62,7 @@ def create_dataloader(config: DataConfig, tokenizer: PreTrainedTokenizer, proces
         use_preprocessed_videos=config.use_preprocessed_videos,
         video_source_mode=config.video_source_mode,
         preprocessed_video_dir=config.preprocessed_video_dir,
+        model_type=model_type,
     )
     # use sampler for better ckpt resume
     if config.shuffle:
@@ -95,6 +110,7 @@ def create_dataloader(config: DataConfig, tokenizer: PreTrainedTokenizer, proces
         use_preprocessed_videos=config.use_preprocessed_videos,
         video_source_mode=config.val_video_source_mode,
         preprocessed_video_dir=config.val_preprocessed_video_dir,
+        model_type=model_type,
     )
 
     if config.val_batch_size == -1:

@@ -196,9 +196,11 @@ class RLHFDataset(Dataset):
         use_preprocessed_videos: bool = True,
         video_source_mode: Optional[str] = None,
         preprocessed_video_dir: Optional[str] = None,
+        model_type: Optional[str] = None,
     ):
         self.tokenizer = tokenizer
         self.processor = processor
+        self.model_type = model_type
         self.prompt_key = prompt_key
         self.answer_key = answer_key
         self.image_key = image_key
@@ -595,7 +597,11 @@ class RLHFDataset(Dataset):
 
         if self.processor is not None and "Qwen2VLImageProcessor" in self.processor.image_processor.__class__.__name__:
             # qwen-vl mrope
-            if "Qwen3VLProcessor" in self.processor.__class__.__name__:
+            # Qwen3.5 and Qwen3-VL share the same Qwen3VLProcessor,
+            # so we distinguish by model_type when available
+            if self.model_type == "qwen3_5":
+                from ..models.transformers.qwen3_5 import get_rope_index
+            elif "Qwen3VLProcessor" in self.processor.__class__.__name__:
                 from ..models.transformers.qwen3_vl import get_rope_index
             else:
                 from ..models.transformers.qwen2_vl import get_rope_index
